@@ -373,357 +373,334 @@
     </div>
   </div>
 
-<script>
-  // ----------------------------
-  // CONFIG (change if needed)
-  // ----------------------------
-  const DEFAULT_API_BASE = "http://127.0.0.1:3000";
-  const BACK_URL = "./index.html#tests"; // if your list-of-tests is somewhere else, change this
-
-  // ----------------------------
-  // DOM
-  // ----------------------------
-  const el = (id) => document.getElementById(id);
-
-  const adminKeyInput = el("adminKey");
-  const msgEl = el("msg");
-
-  const pageTitle = el("pageTitle");
-  const pageSub = el("pageSub");
-
-  const testIdEl = el("testId");
-  const titleEl = el("title");
-  const subjectEl = el("subject");
-  const levelEl = el("level");
-  const numQuestionsEl = el("numQuestions");
-  const choicesCountEl = el("choicesCount");
-  const answerKeyEl = el("answerKey");
-  const keyHintEl = el("keyHint");
-
-  const fileInfoEl = el("fileInfo");
-  const imgWrapEl = el("imgWrap");
-  const newImageEl = el("newImage");
-
-  const reloadBtn = el("reloadBtn");
-  const resetBtn = el("resetBtn");
-  const saveBtn = el("saveBtn");
-  const backBtn = el("backBtn");
-  const metaLine = el("metaLine");
-
-  // ----------------------------
-  // State
-  // ----------------------------
-  const url = new URL(window.location.href);
-  const TEST_ID = url.searchParams.get("id");
-
-  let original = null; // snapshot for reset
-  let lastLoaded = null;
-
-  // ----------------------------
-  // Helpers
-  // ----------------------------
-  function getApiBase(){
-    return localStorage.getItem("IGLOO_API_BASE") || DEFAULT_API_BASE;
-  }
-  function getAdminKey(){
-    return (localStorage.getItem("IGLOO_ADMIN_KEY") || "").trim();
-  }
-  function setAdminKey(v){
-    localStorage.setItem("IGLOO_ADMIN_KEY", (v || "").trim());
-  }
-
-  function setMsg(type, text){
-    msgEl.className = "msg " + (type || "");
-    msgEl.textContent = text || "";
-    msgEl.style.display = text ? "block" : "none";
-  }
-
-  function lettersForChoices(count){
-    return "ABCDE".slice(0, Number(count) === 4 ? 4 : 5);
-  }
-
-  function normalizeKey(raw){
-    return String(raw || "").toUpperCase().replace(/\s+/g, "").trim();
-  }
-
-  function buildKeyString(answerMap, n, letters){
-    // answer_key is like { q1: 0, q2: 3, ... }
-    const out = [];
-    for (let i = 1; i <= n; i++){
-      const idx = answerMap?.["q" + i];
-      out.push(typeof idx === "number" && idx >= 0 && idx < letters.length ? letters[idx] : "");
+    
+  <script>
+    // ============================
+    // CONFIG
+    // ============================
+    const DEFAULT_API_BASE = "https://igloo-study-hgw7.onrender.com"; // <-- your Render backend URL
+    const BACK_URL = "./index.html#tests"; // your admin list page
+  
+    const STORAGE_ADMIN_KEY = "IGLOO_ADMIN_KEY";
+    const STORAGE_API_BASE  = "IGLOO_API_BASE"; // optional override
+  
+    // ============================
+    // DOM
+    // ============================
+    const el = (id) => document.getElementById(id);
+  
+    const adminKeyInput = el("adminKey");
+    const msgEl = el("msg");
+  
+    const pageTitle = el("pageTitle");
+    const pageSub = el("pageSub");
+  
+    const testIdEl = el("testId");
+    const titleEl = el("title");
+    const subjectEl = el("subject");
+    const levelEl = el("level");
+    const numQuestionsEl = el("numQuestions");
+    const choicesCountEl = el("choicesCount");
+    const answerKeyEl = el("answerKey");
+    const keyHintEl = el("keyHint");
+  
+    const fileInfoEl = el("fileInfo");
+    const imgWrapEl = el("imgWrap");
+    const newImageEl = el("newImage");
+  
+    const reloadBtn = el("reloadBtn");
+    const resetBtn = el("resetBtn");
+    const saveBtn = el("saveBtn");
+    const backBtn = el("backBtn");
+    const metaLine = el("metaLine");
+  
+    // ============================
+    // STATE
+    // ============================
+    const url = new URL(window.location.href);
+    const TEST_ID = url.searchParams.get("id");
+  
+    let original = null;
+  
+    // ============================
+    // HELPERS
+    // ============================
+    function getApiBase() {
+      const v = (localStorage.getItem(STORAGE_API_BASE) || DEFAULT_API_BASE || "").trim();
+      return v.replace(/\/+$/, "");
     }
-    return out.join("");
-  }
-
-  function renderImagePreview(apiBase, imageUrl){
-    imgWrapEl.innerHTML = "";
-    if (!imageUrl){
+  
+    function getAdminKey() {
+      return (localStorage.getItem(STORAGE_ADMIN_KEY) || "").trim();
+    }
+  
+    function setAdminKey(v) {
+      localStorage.setItem(STORAGE_ADMIN_KEY, (v || "").trim());
+    }
+  
+    function setMsg(type, text) {
+      msgEl.className = "msg " + (type || "");
+      msgEl.textContent = text || "";
+      msgEl.style.display = text ? "block" : "none";
+    }
+  
+    function lettersForChoices(count) {
+      return "ABCDE".slice(0, Number(count) === 4 ? 4 : 5);
+    }
+  
+    function normalizeKey(raw) {
+      return String(raw || "").toUpperCase().replace(/\s+/g, "").trim();
+    }
+  
+    function buildKeyString(answerMap, n, letters) {
+      const out = [];
+      for (let i = 1; i <= n; i++) {
+        const idx = answerMap?.["q" + i];
+        out.push(typeof idx === "number" && idx >= 0 && idx < letters.length ? letters[idx] : "");
+      }
+      return out.join("");
+    }
+  
+    function renderImagePreview(imageUrl) {
+      imgWrapEl.innerHTML = "";
+      if (!imageUrl) {
+        fileInfoEl.textContent = "—";
+        return;
+      }
+  
+      const apiBase = getApiBase();
+      const full = apiBase + imageUrl; // imageUrl begins with /uploads/...
+      fileInfoEl.textContent = imageUrl;
+  
+      const img = document.createElement("img");
+      img.className = "imgPreview";
+      img.alt = "Test image preview";
+      img.src = full;
+      imgWrapEl.appendChild(img);
+    }
+  
+    async function apiFetch(path, options = {}) {
+      const apiBase = getApiBase();
+      const fullUrl = apiBase + path;
+  
+      const headers = new Headers(options.headers || {});
+      const key = getAdminKey();
+      if (key) headers.set("x-admin-key", key);
+  
+      const res = await fetch(fullUrl, { ...options, headers });
+      return { res, fullUrl };
+    }
+  
+    function updateKeyHint() {
+      const n = Number(numQuestionsEl.value || 0);
+      const letters = lettersForChoices(choicesCountEl.value);
+      keyHintEl.textContent =
+        `Expected: exactly ${n || "N"} letters using only ${letters}. (No spaces)`;
+    }
+  
+    // ============================
+    // LOAD
+    // ============================
+    async function loadTest() {
+      setMsg("", "");
+      imgWrapEl.innerHTML = "";
       fileInfoEl.textContent = "—";
-      return;
-    }
-    const full = apiBase.replace(/\/+$/, "") + imageUrl; // imageUrl begins with /uploads/...
-    fileInfoEl.textContent = imageUrl;
-
-    const img = document.createElement("img");
-    img.className = "imgPreview";
-    img.alt = "Test image preview";
-    img.src = full;
-    imgWrapEl.appendChild(img);
-  }
-
-  async function apiFetch(path, options = {}){
-    const apiBase = getApiBase().replace(/\/+$/, "");
-    const url = apiBase + path;
-
-    const headers = new Headers(options.headers || {});
-    const key = getAdminKey();
-    if (key) headers.set("x-admin-key", key);
-
-    const res = await fetch(url, { ...options, headers });
-    return { res, url };
-  }
-
-  function updateKeyHint(){
-    const n = Number(numQuestionsEl.value || 0);
-    const letters = lettersForChoices(choicesCountEl.value);
-    keyHintEl.textContent =
-      `Expected: exactly ${n || "N"} letters using only ${letters}. (No spaces)`;
-  }
-
-  // ----------------------------
-  // Load / Fill
-  // ----------------------------
-  async function loadTest(){
-    setMsg("", "");
-    imgWrapEl.innerHTML = "";
-    fileInfoEl.textContent = "—";
-
-    if (!TEST_ID){
-      pageTitle.textContent = "Missing test id";
-      pageSub.textContent = "Open this page like edit-test.html?id=YOUR_TEST_ID";
-      setMsg("err", "No test id found in the URL.");
-      return;
-    }
-
-    // Require admin key before calling admin endpoints
-    if (!getAdminKey()){
-      pageTitle.textContent = "Admin Key required";
-      pageSub.textContent = "Enter your Admin Key above to load the test.";
-      setMsg("err", "Enter the Admin Key above (it must match server ADMIN_KEY), then click Reload.");
-      return;
-    }
-
-    pageTitle.textContent = "Loading…";
-    pageSub.textContent = "Fetching test data…";
-    metaLine.textContent = "";
-
-    const { res, url: calledUrl } = await apiFetch(`/admin/tests/${encodeURIComponent(TEST_ID)}`, {
-      method: "GET",
-    });
-
-    if (!res.ok){
-      let detail = "";
-      try { detail = JSON.stringify(await res.json()); } catch { /* ignore */ }
-
-      if (res.status === 401){
-        pageTitle.textContent = "Unauthorized";
-        pageSub.textContent = "Admin key is missing or incorrect.";
-        setMsg("err",
-          `Unauthorized (401).\n` +
-          `Make sure the Admin Key matches your server's ADMIN_KEY.\n` +
-          `Request: ${calledUrl}`
-        );
+  
+      if (!TEST_ID) {
+        pageTitle.textContent = "Missing test id";
+        pageSub.textContent = "Open this page like edit-test.html?id=YOUR_TEST_ID";
+        setMsg("err", "No test id found in the URL.");
         return;
       }
-
-      pageTitle.textContent = "Could not load test";
-      pageSub.textContent = "Check backend route and server logs.";
-      setMsg("err",
-        `Failed to load test (${res.status}).\n` +
-        `Request: ${calledUrl}\n` +
-        (detail ? `Response: ${detail}` : "")
-      );
-      return;
-    }
-
-    const data = await res.json();
-    lastLoaded = data;
-
-    // Derive q info
-    const q = data.questions || {};
-    const n = Number(q.num_questions || 0);
-    const c = Number(q.choices_count || (Array.isArray(q.choices) ? q.choices.length : 5)) || 5;
-    const letters = lettersForChoices(c);
-
-    // Fill UI
-    testIdEl.value = data.id || TEST_ID;
-    titleEl.value = data.title || "";
-    subjectEl.value = data.subject || "";
-    levelEl.value = data.level || "";
-
-    numQuestionsEl.value = n || "";
-    choicesCountEl.value = String(c === 4 ? 4 : 5);
-
-    // Build answer key string from map (server stores JSON map)
-    const keyStr = buildKeyString(data.answer_key || {}, n || 0, letters);
-    answerKeyEl.value = keyStr;
-
-    // Image preview (IMPORTANT: must use API_BASE + /uploads/..)
-    renderImagePreview(getApiBase(), q.image_url || null);
-
-    pageTitle.textContent = data.title ? `Editing: ${data.title}` : "Edit Test";
-    pageSub.textContent = "Update fields, then Save Changes at the bottom.";
-
-    metaLine.textContent = data.created_at ? `Created: ${new Date(data.created_at).toLocaleString()}` : "";
-
-    updateKeyHint();
-
-    // Snapshot for reset
-    original = {
-      title: titleEl.value,
-      numQuestions: numQuestionsEl.value,
-      choicesCount: choicesCountEl.value,
-      answerKey: answerKeyEl.value,
-      image_url: q.image_url || null,
-      subject: subjectEl.value,
-      level: levelEl.value,
-    };
-
-    setMsg("ok", "Loaded successfully.");
-    // clear file input on load
-    newImageEl.value = "";
-  }
-
-  // ----------------------------
-  // Save
-  // ----------------------------
-  function validateForm(){
-    const n = Number(numQuestionsEl.value);
-    if (!Number.isFinite(n) || n < 1 || n > 200){
-      return `Number of questions must be between 1 and 200.`;
-    }
-
-    const c = Number(choicesCountEl.value) === 4 ? 4 : 5;
-    const letters = lettersForChoices(c);
-
-    const key = normalizeKey(answerKeyEl.value);
-    if (key.length !== n){
-      return `Answer key must be exactly ${n} letters (currently ${key.length}).`;
-    }
-    for (const ch of key){
-      if (!letters.includes(ch)){
-        return `Answer key can only use letters: ${letters}`;
+  
+      if (!getAdminKey()) {
+        pageTitle.textContent = "Admin Key required";
+        pageSub.textContent = "Enter your Admin Key above to load the test.";
+        setMsg("err", "Enter the Admin Key above (it must match server ADMIN_KEY), then click Reload.");
+        return;
       }
-    }
-    return null;
-  }
-
-  async function saveChanges(){
-    setMsg("", "");
-
-    if (!getAdminKey()){
-      setMsg("err", "Enter Admin Key first (top right), then try again.");
-      return;
-    }
-
-    const err = validateForm();
-    if (err){
-      setMsg("err", err);
-      return;
-    }
-
-    saveBtn.disabled = true;
-    resetBtn.disabled = true;
-    reloadBtn.disabled = true;
-
-    try{
-      const n = Number(numQuestionsEl.value);
-      const c = Number(choicesCountEl.value) === 4 ? 4 : 5;
-      const key = normalizeKey(answerKeyEl.value);
-
-      const fd = new FormData();
-      fd.append("title", titleEl.value || "");
-      fd.append("subject", subjectEl.value || "");
-      fd.append("level", levelEl.value || "");
-      fd.append("num_questions", String(n));
-      fd.append("choices_count", String(c));
-      fd.append("answer_key", key);
-
-      if (newImageEl.files && newImageEl.files[0]){
-        fd.append("image", newImageEl.files[0]);
-      }
-
-      const { res, url: calledUrl } = await apiFetch(`/admin/tests/${encodeURIComponent(TEST_ID)}`, {
-        method: "PUT",
-        body: fd,
+  
+      pageTitle.textContent = "Loading…";
+      pageSub.textContent = "Fetching test data…";
+      metaLine.textContent = "";
+  
+      const { res, fullUrl } = await apiFetch(`/admin/tests/${encodeURIComponent(TEST_ID)}`, {
+        method: "GET",
       });
-
-      const payload = await res.json().catch(() => ({}));
-
-      if (!res.ok){
-        setMsg("err",
-          `Save failed (${res.status}).\n` +
-          `Request: ${calledUrl}\n` +
-          `Response: ${JSON.stringify(payload)}`
-        );
+  
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        if (res.status === 401) {
+          pageTitle.textContent = "Unauthorized";
+          pageSub.textContent = "Admin key is missing or incorrect.";
+          setMsg("err", `Unauthorized (401).\nMake sure the Admin Key is correct.\nRequest: ${fullUrl}\n${text}`);
+          return;
+        }
+  
+        pageTitle.textContent = "Could not load test";
+        pageSub.textContent = "Check backend route and server logs.";
+        setMsg("err", `Failed to load test (${res.status}).\nRequest: ${fullUrl}\n${text}`);
         return;
       }
-
-      setMsg("ok", "Saved. Returning to tests list…");
-      // Redirect back to list page
-      window.location.href = BACK_URL;
-    } finally {
-      saveBtn.disabled = false;
-      resetBtn.disabled = false;
-      reloadBtn.disabled = false;
+  
+      const data = await res.json();
+  
+      const q = data.questions || {};
+      const n = Number(q.num_questions || 0);
+      const c = Number(q.choices_count || (Array.isArray(q.choices) ? q.choices.length : 5)) || 5;
+      const letters = lettersForChoices(c);
+  
+      testIdEl.value = data.id || TEST_ID;
+      titleEl.value = data.title || "";
+      subjectEl.value = data.subject || "";
+      levelEl.value = data.level || "";
+  
+      numQuestionsEl.value = n || "";
+      choicesCountEl.value = String(c === 4 ? 4 : 5);
+  
+      answerKeyEl.value = buildKeyString(data.answer_key || {}, n || 0, letters);
+  
+      renderImagePreview(q.image_url || null);
+  
+      pageTitle.textContent = data.title ? `Editing: ${data.title}` : "Edit Test";
+      pageSub.textContent = "Update fields, then Save Changes at the bottom.";
+      metaLine.textContent = data.created_at ? `Created: ${new Date(data.created_at).toLocaleString()}` : "";
+  
+      updateKeyHint();
+  
+      original = {
+        title: titleEl.value,
+        numQuestions: numQuestionsEl.value,
+        choicesCount: choicesCountEl.value,
+        answerKey: answerKeyEl.value,
+        image_url: q.image_url || null,
+      };
+  
+      newImageEl.value = "";
+      setMsg("ok", "Loaded successfully.");
     }
-  }
-
-  // ----------------------------
-  // Reset
-  // ----------------------------
-  function resetForm(){
-    if (!original){
-      setMsg("err", "Nothing to reset yet. Load the test first.");
-      return;
+  
+    // ============================
+    // VALIDATE + SAVE
+    // ============================
+    function validateForm() {
+      const n = Number(numQuestionsEl.value);
+      if (!Number.isFinite(n) || n < 1 || n > 200) return "Number of questions must be between 1 and 200.";
+  
+      const c = Number(choicesCountEl.value) === 4 ? 4 : 5;
+      const letters = lettersForChoices(c);
+  
+      const key = normalizeKey(answerKeyEl.value);
+      if (key.length !== n) return `Answer key must be exactly ${n} letters (currently ${key.length}).`;
+  
+      for (const ch of key) {
+        if (!letters.includes(ch)) return `Answer key can only use letters: ${letters}`;
+      }
+      return null;
     }
-    titleEl.value = original.title;
-    numQuestionsEl.value = original.numQuestions;
-    choicesCountEl.value = original.choicesCount;
-    answerKeyEl.value = original.answerKey;
-    newImageEl.value = "";
-    renderImagePreview(getApiBase(), original.image_url);
-    updateKeyHint();
-    setMsg("ok", "Form reset to last loaded values.");
-  }
+  
+    async function saveChanges() {
+      setMsg("", "");
+  
+      if (!getAdminKey()) {
+        setMsg("err", "Enter Admin Key first (top right), then try again.");
+        return;
+      }
+  
+      const err = validateForm();
+      if (err) {
+        setMsg("err", err);
+        return;
+      }
+  
+      saveBtn.disabled = true;
+      resetBtn.disabled = true;
+      reloadBtn.disabled = true;
+  
+      try {
+        const n = Number(numQuestionsEl.value);
+        const c = Number(choicesCountEl.value) === 4 ? 4 : 5;
+        const key = normalizeKey(answerKeyEl.value);
+  
+        const fd = new FormData();
+        fd.append("title", titleEl.value || "");
+        fd.append("subject", subjectEl.value || "");
+        fd.append("level", levelEl.value || "");
+        fd.append("num_questions", String(n));
+        fd.append("choices_count", String(c));
+        fd.append("answer_key", key);
+  
+        if (newImageEl.files && newImageEl.files[0]) {
+          fd.append("image", newImageEl.files[0]);
+        }
+  
+        const { res, fullUrl } = await apiFetch(`/admin/tests/${encodeURIComponent(TEST_ID)}`, {
+          method: "PUT",
+          body: fd, // IMPORTANT: don't set Content-Type manually for FormData
+        });
+  
+        const text = await res.text().catch(() => "");
+        if (!res.ok) {
+          setMsg("err", `Save failed (${res.status}).\nRequest: ${fullUrl}\n${text}`);
+          return;
+        }
+  
+        setMsg("ok", "Saved. Returning to tests list…");
+        window.location.href = BACK_URL;
+      } finally {
+        saveBtn.disabled = false;
+        resetBtn.disabled = false;
+        reloadBtn.disabled = false;
+      }
+    }
+  
+    // ============================
+    // RESET
+    // ============================
+    function resetForm() {
+      if (!original) {
+        setMsg("err", "Nothing to reset yet. Load the test first.");
+        return;
+      }
+      titleEl.value = original.title;
+      numQuestionsEl.value = original.numQuestions;
+      choicesCountEl.value = original.choicesCount;
+      answerKeyEl.value = original.answerKey;
+      newImageEl.value = "";
+      renderImagePreview(original.image_url);
+      updateKeyHint();
+      setMsg("ok", "Form reset to last loaded values.");
+    }
+  
+    // ============================
+    // INIT / EVENTS
+    // ============================
+    function init() {
+      // Load stored admin key into the input
+      adminKeyInput.value = getAdminKey();
+  
+      // Save as user types
+      adminKeyInput.addEventListener("input", () => setAdminKey(adminKeyInput.value));
+  
+      // Enter to reload
+      adminKeyInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") loadTest();
+      });
+  
+      choicesCountEl.addEventListener("change", updateKeyHint);
+      numQuestionsEl.addEventListener("input", updateKeyHint);
+  
+      reloadBtn.addEventListener("click", loadTest);
+      resetBtn.addEventListener("click", resetForm);
+      saveBtn.addEventListener("click", saveChanges);
+      backBtn.addEventListener("click", () => (window.location.href = BACK_URL));
+  
+      loadTest();
+    }
+  
+    init();
+  </script>
+  
 
-  // ----------------------------
-  // Wire up events
-  // ----------------------------
-  function init(){
-    // Load saved admin key
-    adminKeyInput.value = getAdminKey();
-    adminKeyInput.addEventListener("input", () => {
-      setAdminKey(adminKeyInput.value);
-    });
-    adminKeyInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") loadTest();
-    });
-
-    choicesCountEl.addEventListener("change", updateKeyHint);
-    numQuestionsEl.addEventListener("input", updateKeyHint);
-
-    reloadBtn.addEventListener("click", loadTest);
-    resetBtn.addEventListener("click", resetForm);
-    saveBtn.addEventListener("click", saveChanges);
-    backBtn.addEventListener("click", () => (window.location.href = BACK_URL));
-
-    // Initial
-    loadTest();
-  }
-
-  init();
-</script>
 </body>
 </html>
