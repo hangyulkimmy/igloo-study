@@ -661,13 +661,20 @@ const API_BASE = "https://igloo-study-hgw7.onrender.com";
     }
 
     function switchView(name){
-      for(const [k, el] of Object.entries(views)){
-        el.classList.toggle("hidden", k !== name);
-      }
-      navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === name));
-      if(name === "submissions") loadSubmissions();
-      if(name === "tests") loadTests();
-    }
+  // keep URL hash in sync (so #tests works)
+  if (location.hash !== `#${name}`) {
+    history.replaceState(null, "", `#${name}`);
+  }
+
+  for(const [k, el] of Object.entries(views)){
+    el.classList.toggle("hidden", k !== name);
+  }
+  navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === name));
+
+  if(name === "submissions") loadSubmissions();
+  if(name === "tests") loadTests();
+}
+
 
     adminKeyEl.addEventListener("input", () => {
       localStorage.setItem(ADMIN_KEY_STORAGE, adminKeyEl.value);
@@ -1101,10 +1108,14 @@ const API_BASE = "https://igloo-study-hgw7.onrender.com";
 
     // Init
     (function init(){
-      const saved = localStorage.getItem(ADMIN_KEY_STORAGE);
-      if(saved) adminKeyEl.value = saved;
-      switchView("submissions");
-    })();
+  const saved = localStorage.getItem(ADMIN_KEY_STORAGE);
+  if(saved) adminKeyEl.value = saved;
+
+  const hash = (location.hash || "#submissions").replace("#", "");
+  const initialView = ["submissions","upload","tests"].includes(hash) ? hash : "submissions";
+  switchView(initialView);
+})();
+
   </script>
 </body>
 </html>
