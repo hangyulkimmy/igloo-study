@@ -570,8 +570,13 @@
   </div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:3000";
-    const ADMIN_KEY_STORAGE = "igloo_admin_key_v1";
+const API_BASE =
+  (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    ? "http://127.0.0.1:3000"
+    : "https://igloo-study-hgw7.onrender.com"; // <-- MUST be your actual backend Render URL
+
+    const ADMIN_KEY_STORAGE = "IGLOO_ADMIN_KEY";
+
 
     const adminKeyEl = document.getElementById("adminKey");
     const navButtons = document.querySelectorAll(".nav button[data-view]");
