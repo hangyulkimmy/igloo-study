@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Igloo Study - Take Test</title>
+  <script src="./config.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background: #f6f7fb; }
+    .wrap { max-width: 1000px; margin: 22px auto; padding: 0 16px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 14px; }
+    .pill { background: white; border-radius: 999px; padding: 10px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.06); font-size: 14px; }
+    .card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
+    h1 { margin: 0 0 8px; font-size: 20px; }
+    .muted { color:#555; margin: 0 0 14px; }
+    img { width: 100%; border-radius: 12px; border: 1px solid #eee; background: #fafafa; }
+    .qgrid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px; }
+    .q { border: 1px solid #e6e6e6; border-radius: 12px; padding: 12px; }
+    .q h3 { margin: 0 0 10px; font-size: 14px; }
+    .choices { display:flex; gap: 12px; flex-wrap: wrap; }
+    .choice { display:flex; align-items:center; gap: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid #ddd; cursor: pointer; user-select:none; }
+    .choice input { cursor:pointer; }
+    .actions { display:flex; gap: 10px; margin-top: 16px; }
+    button { border: 0; border-radius: 10px; padding: 11px 14px; font-weight: 700; cursor: pointer; }
+    .primary { background: #1f6feb; color: white; }
+    .ghost { background: #eef2ff; color: #1f2a44; }
+    .danger { background: #ffe9e9; color: #7a0b0b; }
+    .msg { margin-top: 12px; font-size: 14px; }
+    .err { color: #b00020; }
+    .ok { color: #146c2e; }
+    .result { margin-top: 14px; padding: 12px; border-radius: 12px; background: #f2fff3; border: 1px solid #c8f0cc; }
+    @media (max-width: 820px) { .qgrid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="pill" id="studentPill">Student</div>
+      <div class="pill" id="testPill">Test</div>
+    </div>
+
+    <div class="card">
+      <h1 id="title">Loading…</h1>
+      <p class="muted" id="subtitle"></p>
+
+      <div id="imgWrap" style="display:none;">
+        <img id="testImg" alt="Test image" />
+      </div>
+
+      <div id="qWrap"></div>
+
+      <div class="actions">
+        <button class="ghost" id="backBtn">Back</button>
+        <button class="danger" id="resetBtn">Reset Answers</button>
+        <button class="primary" id="submitBtn">Submit</button>
+      </div>
+
+      <div class="msg" id="msg"></div>
+      <div id="resultWrap"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function setMsg(text, type="") {
+      const el = $("msg");
+      el.className = "msg " + (type || "");
+      el.textContent = text || "";
+    }
+
+    async function fetchJSON(url, options) {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) {
+        const detail = data?.detail || data?.error || text || ("HTTP " + res.status);
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    function getInfo() {
+      const raw = sessionStorage.getItem("testerInfo");
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    function answersKey(subject, level) {
+      return `testerAnswers:${subject}:${level}`;
+    }
+
+    function saveAnswers(subject, level, answers) {
+      localStorage.setItem(answersKey(subject, level), JSON.stringify(answers));
+    }
+
+    function loadAnswers(subject, level) {
+      try {
+        return JSON.parse(localStorage.getItem(answersKey(subject, level)) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function clearAnswers(subject, level) {
+      localStorage.removeItem(answersKey(subject, level));
+    }
+
+    function renderQuestions(test, subject, level) {
+      const q = test.questions;
+      const n = Number(q.num_questions || 0);
+      const choices = Array.isArray(q.choices) ? q.choices : ["A","B","C","D","E"];
+      const saved = loadAnswers(subject, level);
+
+      const wrap = $("qWrap");
+      wrap.innerHTML = "";
+
+      const grid = document.createElement("div");
+      grid.className = "qgrid";
+
+      for (let i = 1; i <= n; i++) {
+        const qid = "q" + i;
+        const box = document.createElement("div");
+        box.className = "q";
+
+        const h = document.createElement("h3");
+        h.textContent = `Question ${i}`;
+        box.appendChild(h);
+
+        const choicesRow = document.createElement("div");
+        choicesRow.className = "choices";
+
+        choices.forEach((letter, idx) => {
+          const label = document.createElement("label");
+          label.className = "choice";
+
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = qid;
+          input.value = String(idx);
+          if (saved[qid] === idx) input.checked = true;
+
+          input.addEventListener("change", () => {
+            const latest = loadAnswers(subject, level);
+            latest[qid] = idx;
+            saveAnswers(subject, level, latest);
+          });
+
+          const span = document.createElement("span");
+          span.textContent = letter;
+
+          label.appendChild(input);
+          label.appendChild(span);
+          choicesRow.appendChild(label);
+        });
+
+        box.appendChild(choicesRow);
+        grid.appendChild(box);
+      }
+
+      wrap.appendChild(grid);
+    }
+
+    async function main() {
+      const info = getInfo();
+      if (!info) {
+        window.location.href = "./index.html";
+        return;
+      }
+
+      $("studentPill").textContent = `${info.name} (Grade ${info.grade})`;
+      $("testPill").textContent = `${info.subject.toUpperCase()} • Level ${info.level}`;
+
+      $("backBtn").addEventListener("click", () => {
+        window.location.href = "./index.html";
+      });
+
+      $("resetBtn").addEventListener("click", () => {
+        if (!confirm("Reset all answers?")) return;
+        clearAnswers(info.subject, info.level);
+        document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+        setMsg("Answers reset.", "ok");
+        $("resultWrap").innerHTML = "";
+      });
+
+      setMsg("Loading test…");
+
+      let test;
+      try {
+        const url = `${window.API_BASE}/tests?subject=${encodeURIComponent(info.subject)}&level=${encodeURIComponent(info.level)}`;
+        test = await fetchJSON(url);
+      } catch (e) {
+        $("title").textContent = "Could not load test";
+        $("subtitle").textContent = "";
+        setMsg(`Error: ${e.message}`, "err");
+        return;
+      }
+
+      $("title").textContent = test.title || "Test";
+      $("subtitle").textContent = "Answer all questions, then submit.";
+
+      // image
+      const imgUrl = test?.questions?.image_url;
+      if (imgUrl) {
+        $("imgWrap").style.display = "block";
+        $("testImg").src = window.API_BASE + imgUrl;
+      }
+
+      renderQuestions(test, info.subject, info.level);
+      setMsg("");
+
+      $("submitBtn").addEventListener("click", async () => {
+        $("resultWrap").innerHTML = "";
+        setMsg("");
+
+        const answers = loadAnswers(info.subject, info.level);
+
+        const n = Number(test?.questions?.num_questions || 0);
+        let missing = 0;
+        for (let i = 1; i <= n; i++) {
+          const qid = "q" + i;
+          if (typeof answers[qid] !== "number") missing++;
+        }
+        if (missing > 0) {
+          return setMsg(`Please answer all questions. Missing: ${missing}`, "err");
+        }
+
+        const payload = {
+          test_id: test.id,
+          name: info.name,
+          grade: info.grade,
+          email: info.email,
+          phone: info.phone,
+          subject: info.subject,
+          level: info.level,
+          answers
+        };
+
+        try {
+          setMsg("Submitting…");
+          const res = await fetchJSON(`${window.API_BASE}/submissions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          setMsg("Submitted ✅", "ok");
+          clearAnswers(info.subject, info.level);
+
+          $("resultWrap").innerHTML = `
+            <div class="result">
+              <div style="font-weight:800; font-size:16px; margin-bottom:6px;">
+                Score: ${res.score}%
+              </div>
+              <div style="color:#2b3; font-size:14px;">
+                Submission saved.
+              </div>
+            </div>
+          `;
+        } catch (e) {
+          setMsg(`Submit failed: ${e.message}`, "err");
+        }
+      });
+    }
+
+    main();
+  </script>
+</body>
+</html>

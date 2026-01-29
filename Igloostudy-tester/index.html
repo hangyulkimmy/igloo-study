@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Igloo Study • Tester</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --navy:#0b3a6f; --navy2:#092f59; --gold:#f3b31a;
+      --bg:#071c33; --ink:#0f172a; --muted:#556070;
+      --border:rgba(15,23,42,0.12); --shadow: 0 12px 40px rgba(0,0,0,0.18);
+      --radius:16px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1000px 600px at 30% -200px, rgba(243,179,26,0.20), transparent 55%),
+                  linear-gradient(180deg, var(--navy) 0%, #0a2c52 55%, var(--bg) 100%);
+      min-height:100vh;
+      color: var(--ink);
+    }
+    .app{ display:grid; grid-template-columns: 320px 1fr; min-height:100vh; }
+    .sidebar{
+      background: rgba(255,255,255,0.08);
+      border-right: 1px solid rgba(255,255,255,0.12);
+      padding: 18px 14px;
+      color: #fff;
+      position: sticky; top:0; height:100vh; overflow:auto;
+    }
+    .brand{ display:flex; gap:12px; align-items:center; padding: 8px 8px 16px; }
+    .logo{
+      width:48px; height:48px; border-radius: 14px; overflow:hidden;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.25);
+      background: rgba(255,255,255,0.08);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .brandTitle h1{ margin:0; font-family:"Libre Baskerville", serif; font-size: 18px; }
+    .brandTitle p{ margin:6px 0 0; font-size: 12px; color: rgba(255,255,255,0.78); }
+
+    .box{
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+    }
+    .box h3{ margin:0 0 8px; font-size: 13px; font-weight: 900; }
+    .box label{ display:block; font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.86); margin: 10px 0 6px; }
+    .box input, .box select{
+      width:100%;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.12);
+      color:#fff;
+      outline:none;
+      font-weight: 700;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .box input::placeholder{ color: rgba(255,255,255,0.65); }
+
+    .hint{ margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75); line-height: 1.35; }
+
+    .btn{
+      border:0; border-radius: 12px; padding: 10px 12px;
+      font-weight: 900; cursor:pointer; font-size: 13px; white-space: nowrap;
+    }
+    .btnPrimary{ background: var(--gold); color:#1b1b1b; }
+    .btnGhost{ background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.22); }
+    .btn:disabled{ opacity:0.55; cursor:not-allowed; }
+
+    .actions{ display:flex; gap:10px; flex-wrap: wrap; margin-top: 12px; }
+
+    .msg{ margin-top: 10px; font-size: 13px; font-weight: 900; }
+    .ok{ color: #b9f6c8; }
+    .err{ color: #ffb4b4; }
+
+    .main{ padding: 22px 18px 60px; }
+    .panel{
+      max-width: 1100px;
+      margin: 0 auto 16px;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panelHead{
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(11,58,111,0.06), transparent);
+      display:flex; justify-content: space-between; gap: 12px; align-items:flex-start;
+    }
+    .panelHead h2{ margin:0; font-family:"Libre Baskerville", serif; font-size: 18px; }
+    .panelHead p{ margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .panelBody{ padding: 16px; }
+
+    .pill{
+      display:inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(11,58,111,0.08);
+      border: 1px solid rgba(15,23,42,0.10);
+      font-weight: 900;
+      font-size: 12px;
+      color: var(--navy2);
+    }
+    .small{ margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    .qbox{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin: 10px 0; }
+    img.preview{ width:100%; border-radius:14px; border:1px solid var(--border); display:block; }
+
+    .answerGrid{ display:flex; flex-direction:column; gap: 10px; margin-top: 10px; }
+    .row{
+      display:flex; gap: 10px; align-items:center; flex-wrap: wrap;
+      padding: 10px; border: 1px solid var(--border);
+      border-radius: 14px; background: #fff;
+    }
+    .qnum{ min-width: 52px; font-weight: 900; color: var(--navy2); }
+    .optWrap{ display:flex; gap: 8px; flex-wrap: wrap; }
+    .optBtn{
+      border: 1px solid rgba(11,58,111,0.20);
+      background: rgba(11,58,111,0.06);
+      color: var(--navy2);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 900;
+      cursor:pointer;
+      font-size: 13px;
+    }
+    .optBtn:hover{ background: rgba(11,58,111,0.10); }
+    .optBtn.selected{
+      background: rgba(243,179,26,0.25);
+      border-color: rgba(243,179,26,0.55);
+      color: #1b1b1b;
+    }
+
+    @media (max-width: 900px){
+      .app{ grid-template-columns: 1fr; }
+      .sidebar{ position: static; height:auto; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">
+          <img src="./assets/logo.png" alt="Igloo Study logo" />
+        </div>
+        <div class="brandTitle">
+          <h1>Igloo Study</h1>
+          <p>Tester</p>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3>Student Info</h3>
+
+        <label for="sName">Name</label>
+        <input id="sName" placeholder="Student name" />
+
+        <label for="sGrade">Grade</label>
+        <input id="sGrade" placeholder="e.g., 10" />
+
+        <label for="sEmail">Email</label>
+        <input id="sEmail" placeholder="student@email.com" />
+
+        <label for="sPhone">Phone</label>
+        <input id="sPhone" placeholder="010-1234-5678" />
+
+        <div class="hint">You can’t start the test until all fields are filled.</div>
+        <div id="studentGateMsg" class="msg"></div>
+      </div>
+
+      <div class="box">
+        <h3>Choose Category</h3>
+
+        <label for="subject">Subject</label>
+        <select id="subject">
+          <option value="math">Math</option>
+          <option value="english">English</option>
+          <option value="physics">Physics</option>
+          <option value="chem">Chemistry</option>
+        </select>
+
+        <label for="level">Level</label>
+        <select id="level">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="expert">Expert</option>
+        </select>
+
+        <div class="actions">
+          <button class="btn btnPrimary" id="startBtn">Start Test</button>
+          <button class="btn btnGhost" id="clearBtn" type="button">Clear</button>
+        </div>
+
+        <div id="leftMsg" class="msg"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- HOME -->
+      <section class="panel" id="panelHome">
+        <div class="panelHead">
+          <div>
+            <h2>Welcome</h2>
+            <p>Fill student info, choose a category, then start a random test.</p>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="qbox">
+            <div style="font-weight:900;">How it works</div>
+            <div class="small">
+              1) Fill student info (required).<br/>
+              2) Start a random test for the subject/level.<br/>
+              3) Submit → you’ll be redirected to a submission confirmation page.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEST VIEW -->
+      <section class="panel" id="panelTest" style="display:none;">
+        <div class="panelHead">
+          <div>
+            <h2 id="testTitle">Test</h2>
+            <p id="testSub">—</p>
+          </div>
+          <div class="actions" style="margin-top:0;">
+            <button class="btn btnGhost" id="reloadBtn" type="button">New Random Test</button>
+          </div>
+        </div>
+
+        <div class="panelBody">
+          <div class="qbox" id="imgBox" style="display:none;">
+            <div style="font-weight:900; margin-bottom:8px;">Test image</div>
+            <img id="testImg" class="preview" alt="Test image" />
+            <div class="small">Zoom in if needed. Answers are selected below.</div>
+          </div>
+
+          <div class="qbox">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:900;">Answer Sheet</div>
+                <div class="small" id="metaLine">—</div>
+              </div>
+              <div class="actions" style="margin-top:0;">
+                <button class="btn btnPrimary" id="submitBtn" type="button">Submit</button>
+                <button class="btn btnGhost" id="resetAnswersBtn" type="button">Reset Answers</button>
+              </div>
+            </div>
+
+            <div id="sheet" class="answerGrid"></div>
+
+            <div id="mainMsg" class="msg"></div>
+            <div id="resultLine" class="small"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SUBMITTED VIEW -->
+      <section class="panel" id="panelSubmitted" style="display:none;">
+        <div class="panelHead">
+          <div>
+            <h2>Submitted ✅</h2>
+            <p>Your test has been submitted successfully.</p>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="qbox">
+            <div style="font-weight:900; margin-bottom:8px;">Submission Summary</div>
+            <div id="submittedSummary" class="small"></div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btnPrimary" id="takeAnotherBtn" type="button">Take Another Test</button>
+            <button class="btn btnGhost" id="backHomeBtn" type="button">Back to Home</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const API_BASE = "http://127.0.0.1:3000";
+    const STORAGE_KEY = "igloo_last_submission_v1";
+
+    // ===== DOM =====
+    const leftMsg = document.getElementById("leftMsg");
+    const studentGateMsg = document.getElementById("studentGateMsg");
+
+    const sName = document.getElementById("sName");
+    const sGrade = document.getElementById("sGrade");
+    const sEmail = document.getElementById("sEmail");
+    const sPhone = document.getElementById("sPhone");
+
+    const subjectEl = document.getElementById("subject");
+    const levelEl = document.getElementById("level");
+
+    const startBtn = document.getElementById("startBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const reloadBtn = document.getElementById("reloadBtn");
+
+    const panelHome = document.getElementById("panelHome");
+    const panelTest = document.getElementById("panelTest");
+    const panelSubmitted = document.getElementById("panelSubmitted");
+
+    const testTitle = document.getElementById("testTitle");
+    const testSub = document.getElementById("testSub");
+    const metaLine = document.getElementById("metaLine");
+
+    const imgBox = document.getElementById("imgBox");
+    const testImg = document.getElementById("testImg");
+
+    const sheet = document.getElementById("sheet");
+    const submitBtn = document.getElementById("submitBtn");
+    const resetAnswersBtn = document.getElementById("resetAnswersBtn");
+
+    const mainMsg = document.getElementById("mainMsg");
+    const resultLine = document.getElementById("resultLine");
+
+    const submittedSummary = document.getElementById("submittedSummary");
+    const takeAnotherBtn = document.getElementById("takeAnotherBtn");
+    const backHomeBtn = document.getElementById("backHomeBtn");
+
+    // ===== STATE =====
+    let currentTest = null;
+    let numQuestions = 0;
+    let letters = "ABCDE";
+    let answers = {};
+
+    // ===== HELPERS =====
+    function setMsg(el, text, kind){
+      el.className = "msg " + (kind || "");
+      el.textContent = text || "";
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"
+      }[c]));
+    }
+
+    function getStudentInfo(){
+      const name = sName.value.trim();
+      const grade = sGrade.value.trim();
+      const email = sEmail.value.trim();
+      const phone = sPhone.value.trim();
+      return { name, grade, email, phone };
+    }
+
+    function isStudentInfoValid(){
+      const { name, grade, email, phone } = getStudentInfo();
+      return Boolean(name && grade && email && phone);
+    }
+
+    function syncStudentGate(){
+      const ok = isStudentInfoValid();
+      startBtn.disabled = !ok;
+
+      if(ok){
+        setMsg(studentGateMsg, "Ready ✅", "ok");
+      } else {
+        setMsg(studentGateMsg, "Fill all student fields to start the test.", "err");
+      }
+    }
+
+    function showView(which){
+      panelHome.style.display = (which === "home") ? "block" : "none";
+      panelTest.style.display = (which === "test") ? "block" : "none";
+      panelSubmitted.style.display = (which === "submitted") ? "block" : "none";
+    }
+
+    function computeLetters(meta){
+      const cc = Number(meta?.choices_count ?? (Array.isArray(meta?.choices) ? meta.choices.length : 5)) || 5;
+      letters = "ABCDE".slice(0, Math.max(1, Math.min(5, cc)));
+    }
+
+    function buildSheet(){
+      sheet.innerHTML = "";
+      answers = {};
+
+      for(let i=1; i<=numQuestions; i++){
+        const row = document.createElement("div");
+        row.className = "row";
+
+        const q = document.createElement("div");
+        q.className = "qnum";
+        q.textContent = `Q${i}`;
+
+        const optWrap = document.createElement("div");
+        optWrap.className = "optWrap";
+
+        for(let j=0; j<letters.length; j++){
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "optBtn";
+          btn.textContent = letters[j];
+
+          btn.addEventListener("click", () => {
+            answers[`q${i}`] = j;
+            optWrap.querySelectorAll(".optBtn").forEach(b => b.classList.remove("selected"));
+            btn.classList.add("selected");
+          });
+
+          optWrap.appendChild(btn);
+        }
+
+        row.appendChild(q);
+        row.appendChild(optWrap);
+        sheet.appendChild(row);
+      }
+    }
+
+    function setSubmittedUrl(){
+      const url = new URL(window.location.href);
+      url.searchParams.set("submitted", "1");
+      // remove other possible params if you want
+      window.location.href = url.pathname + "?" + url.searchParams.toString();
+    }
+
+    function clearSubmittedUrl(){
+      const url = new URL(window.location.href);
+      url.searchParams.delete("submitted");
+      window.history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? "?" + url.searchParams.toString() : ""));
+    }
+
+    // ===== ACTIONS =====
+    async function loadRandomTest(){
+      syncStudentGate();
+      if(!isStudentInfoValid()){
+        setMsg(leftMsg, "Fill student info first.", "err");
+        return;
+      }
+
+      setMsg(leftMsg, "Starting random test…", "");
+      setMsg(mainMsg, "", "");
+      resultLine.textContent = "";
+
+      currentTest = null;
+      const subject = subjectEl.value;
+      const level = levelEl.value;
+
+      try{
+        // pick=random is default if you implemented the backend snippet above
+        const res = await fetch(`${API_BASE}/tests?subject=${encodeURIComponent(subject)}&level=${encodeURIComponent(level)}&pick=random`);
+        const data = await res.json().catch(() => ({}));
+
+        if(!res.ok){
+          showView("home");
+          setMsg(leftMsg, `No test found for ${subject}/${level}.`, "err");
+          return;
+        }
+
+        currentTest = data;
+
+        const meta = currentTest.questions || {};
+        computeLetters(meta);
+
+        numQuestions = Number(meta.num_questions || 0);
+        if(!Number.isFinite(numQuestions) || numQuestions < 1){
+          showView("home");
+          setMsg(leftMsg, "This test is missing num_questions.", "err");
+          return;
+        }
+
+        testTitle.textContent = currentTest.title || "Test";
+        testSub.innerHTML =
+          `<span class="pill">${escapeHtml(currentTest.subject || subject)}</span>
+           <span class="pill">${escapeHtml(currentTest.level || level)}</span>
+           <span class="pill">ID: ${escapeHtml(currentTest.id || "")}</span>`;
+        metaLine.textContent = `Questions: ${numQuestions} • Choices: ${letters}`;
+
+        if(meta.type === "image" && meta.image_url){
+          imgBox.style.display = "block";
+          testImg.src = API_BASE + meta.image_url;
+        }else{
+          imgBox.style.display = "none";
+          testImg.removeAttribute("src");
+        }
+
+        buildSheet();
+        showView("test");
+        setMsg(leftMsg, "Test started ✅", "ok");
+        setMsg(mainMsg, "Select your answers, then press Submit.", "");
+      }catch(e){
+        showView("home");
+        setMsg(leftMsg, "Could not reach server (is backend running on :3000?).", "err");
+      }
+    }
+
+    async function submit(){
+      if(!currentTest?.id){
+        setMsg(mainMsg, "No test loaded.", "err");
+        return;
+      }
+
+      if(!isStudentInfoValid()){
+        setMsg(mainMsg, "Student info missing.", "err");
+        return;
+      }
+
+      const info = getStudentInfo();
+      const subject = subjectEl.value;
+      const level = levelEl.value;
+
+      submitBtn.disabled = true;
+      setMsg(mainMsg, "Submitting…", "");
+      resultLine.textContent = "";
+
+      try{
+        const res = await fetch(`${API_BASE}/submissions`, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({
+            test_id: currentTest.id,
+            name: info.name,
+            grade: info.grade,
+            email: info.email,
+            phone: info.phone,
+            subject,
+            level,
+            answers
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok){
+          setMsg(mainMsg, "Submit failed: " + JSON.stringify(data), "err");
+          return;
+        }
+
+        // Save details so the "submitted page" can render it
+        const payload = {
+          submission: data,
+          test: { id: currentTest.id, title: currentTest.title, subject, level },
+          student: info
+        };
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+        // Redirect to "submitted page" (URL changes)
+        setSubmittedUrl();
+
+      }catch(e){
+        setMsg(mainMsg, "Submit failed: could not reach server.", "err");
+      }finally{
+        submitBtn.disabled = false;
+      }
+    }
+
+    function resetAnswers(){
+      buildSheet();
+      setMsg(mainMsg, "Answers cleared.", "");
+      resultLine.textContent = "";
+    }
+
+    function clearAll(){
+      sName.value = "";
+      sGrade.value = "";
+      sEmail.value = "";
+      sPhone.value = "";
+      currentTest = null;
+      numQuestions = 0;
+      answers = {};
+      sheet.innerHTML = "";
+      imgBox.style.display = "none";
+      testImg.removeAttribute("src");
+      setMsg(leftMsg, "", "");
+      setMsg(mainMsg, "", "");
+      resultLine.textContent = "";
+      sessionStorage.removeItem(STORAGE_KEY);
+      clearSubmittedUrl();
+      syncStudentGate();
+      showView("home");
+    }
+
+    function renderSubmittedPage(){
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if(!raw){
+        submittedSummary.textContent = "No submission data found.";
+        return;
+      }
+
+      let obj = null;
+      try { obj = JSON.parse(raw); } catch { obj = null; }
+
+      if(!obj?.submission){
+        submittedSummary.textContent = "No submission data found.";
+        return;
+      }
+
+      const s = obj.student || {};
+      const t = obj.test || {};
+      const sub = obj.submission || {};
+
+      const submittedAt = sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : "(unknown time)";
+      const score = (sub.score !== undefined && sub.score !== null) ? `${sub.score}%` : "(score unavailable)";
+
+      submittedSummary.innerHTML = `
+        <div><b>Student:</b> ${escapeHtml(s.name || "")} (Grade ${escapeHtml(s.grade || "")})</div>
+        <div><b>Email:</b> ${escapeHtml(s.email || "")} • <b>Phone:</b> ${escapeHtml(s.phone || "")}</div>
+        <div style="margin-top:8px;"><b>Test:</b> ${escapeHtml(t.title || "Test")} • ${escapeHtml(t.subject || "")}/${escapeHtml(t.level || "")}</div>
+        <div><b>Score:</b> ${escapeHtml(score)} • <b>Submitted:</b> ${escapeHtml(submittedAt)}</div>
+        <div style="margin-top:8px;"><b>Submission ID:</b> ${escapeHtml(sub.id || "")}</div>
+      `;
+    }
+
+    function initRouting(){
+      const url = new URL(window.location.href);
+      const isSubmitted = url.searchParams.get("submitted") === "1";
+
+      if(isSubmitted){
+        showView("submitted");
+        renderSubmittedPage();
+      } else {
+        showView("home");
+      }
+    }
+
+    // ===== EVENTS =====
+    [sName, sGrade, sEmail, sPhone].forEach(el => el.addEventListener("input", syncStudentGate));
+
+    startBtn.addEventListener("click", loadRandomTest);
+    reloadBtn.addEventListener("click", loadRandomTest);
+
+    clearBtn.addEventListener("click", clearAll);
+    submitBtn.addEventListener("click", submit);
+    resetAnswersBtn.addEventListener("click", resetAnswers);
+
+    takeAnotherBtn.addEventListener("click", () => {
+      // keep student info, go back to home, then they can start another random test
+      clearSubmittedUrl();
+      showView("home");
+      setMsg(leftMsg, "", "");
+      setMsg(mainMsg, "", "");
+      resultLine.textContent = "";
+    });
+
+    backHomeBtn.addEventListener("click", () => {
+      sessionStorage.removeItem(STORAGE_KEY);
+      clearSubmittedUrl();
+      showView("home");
+      setMsg(leftMsg, "", "");
+    });
+
+    // ===== INIT =====
+    syncStudentGate();
+    initRouting();
+  </script>
+</body>
+</html>

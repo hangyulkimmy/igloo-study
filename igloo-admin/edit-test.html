@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Igloo Study — Edit Test</title>
+  <style>
+    :root{
+      --bg1:#0b2f5e;
+      --bg2:#071f3f;
+      --panel:#ffffff;
+      --muted:#6b7280;
+      --text:#111827;
+      --border:#e5e7eb;
+      --soft:#f3f4f6;
+      --gold:#f5b301;
+      --gold2:#d89f00;
+      --bad:#b91c1c;
+      --good:#15803d;
+      --shadow: 0 18px 60px rgba(0,0,0,0.25);
+      --radius: 14px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 500px at 50% -10%, rgba(255,255,255,0.18), transparent 60%),
+                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+      padding: 26px 14px 60px;
+    }
+
+    .topbar{
+      max-width: 980px;
+      margin: 0 auto 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 18px;
+      color:#fff;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap: 12px;
+      min-width: 260px;
+    }
+    .logo{
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.12);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      border: 1px solid rgba(255,255,255,0.20);
+    }
+    .logo img{
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      display:block;
+    }
+    .brandTitle{
+      line-height:1.1;
+    }
+    .brandTitle .h1{
+      font-weight: 900;
+      font-size: 16px;
+      margin:0;
+    }
+    .brandTitle .sub{
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.85;
+      font-weight: 700;
+    }
+
+    .adminKeyBox{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap: 6px;
+      min-width: 280px;
+    }
+    .adminKeyBox label{
+      font-size: 12px;
+      font-weight: 800;
+      opacity: 0.9;
+    }
+    .adminKeyBox input{
+      width: 240px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.12);
+      color:#fff;
+      outline: none;
+    }
+    .adminKeyBox input::placeholder{ color: rgba(255,255,255,0.65); }
+
+    .panel{
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panelHead{
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #f8fafc, #f3f4f6);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 12px;
+    }
+    .panelHead h2{
+      margin:0;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .panelHead p{
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .panelHead .right{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+    }
+
+    .btn{
+      border:0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 900;
+      cursor:pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .btnGhost{
+      background: #fff;
+      color:#0b3a6f;
+      border: 1px solid rgba(11,58,111,0.20);
+    }
+    .btnGhost:hover{ background: #f8fafc; }
+    .btnPrimary{
+      background: var(--gold);
+      color:#1b1b1b;
+    }
+    .btnPrimary:hover{ background: var(--gold2); }
+    .btn:disabled{ opacity:0.6; cursor:not-allowed; }
+
+    .panelBody{
+      padding: 18px;
+    }
+
+    .msg{
+      margin: 0 0 14px;
+      font-size: 13px;
+      font-weight: 900;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--soft);
+      border: 1px solid var(--border);
+      display:none;
+      white-space: pre-wrap;
+    }
+    .msg.ok{
+      display:block;
+      border-color: rgba(21,128,61,0.25);
+      background: rgba(21,128,61,0.08);
+      color: var(--good);
+    }
+    .msg.err{
+      display:block;
+      border-color: rgba(185,28,28,0.25);
+      background: rgba(185,28,28,0.08);
+      color: var(--bad);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 6px;
+    }
+    .full{ grid-column: 1 / -1; }
+
+    label{
+      display:block;
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 6px;
+      color: #111827;
+    }
+    input, select, textarea{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 13px;
+      outline:none;
+    }
+    textarea{
+      min-height: 110px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      font-size: 12px;
+    }
+    .readonly{
+      background: #f3f4f6;
+      color:#6b7280;
+    }
+
+    .hint{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .previewBox{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .imgPreview{
+      width: 100%;
+      display:block;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-top: 10px;
+    }
+
+    .actions{
+      margin-top: 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .actionsLeft, .actionsRight{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .metaLine{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    @media (max-width: 820px){
+      .grid{ grid-template-columns: 1fr; }
+      .adminKeyBox{ align-items:flex-start; }
+      .adminKeyBox input{ width: 100%; }
+      .topbar{ flex-direction:column; align-items:flex-start; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <img src="./assets/logo.png" alt="Igloo Study logo" />
+      </div>
+      <div class="brandTitle">
+        <p class="h1">Igloo Study</p>
+        <p class="sub">Edit Test</p>
+      </div>
+    </div>
+
+    <div class="adminKeyBox">
+      <label for="adminKey">Admin Key</label>
+      <input id="adminKey" placeholder="Enter ADMIN_KEY" />
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panelHead">
+      <div>
+        <h2 id="pageTitle">Loading…</h2>
+        <p id="pageSub">Fetching test data…</p>
+      </div>
+      <div class="right">
+        <button class="btn btnGhost" id="reloadBtn" type="button">Reload</button>
+      </div>
+    </div>
+
+    <div class="panelBody">
+      <div id="msg" class="msg"></div>
+
+      <div class="grid">
+        <div class="full">
+          <label>Test ID</label>
+          <input id="testId" class="readonly" readonly />
+        </div>
+
+        <div class="full">
+          <label>Title</label>
+          <input id="title" placeholder="Test title…" />
+        </div>
+
+        <div>
+          <label>Subject</label>
+          <input id="subject" class="readonly" readonly />
+        </div>
+
+        <div>
+          <label>Level</label>
+          <input id="level" class="readonly" readonly />
+        </div>
+
+        <div>
+          <label>Number of questions</label>
+          <input id="numQuestions" type="number" min="1" max="200" />
+        </div>
+
+        <div>
+          <label>Choices per question</label>
+          <select id="choicesCount">
+            <option value="5">A–E (5 choices)</option>
+            <option value="4">A–D (4 choices)</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label>Answer key (letters only)</label>
+          <textarea id="answerKey" placeholder="Example: ABEDCABDCE"></textarea>
+          <div class="hint" id="keyHint"></div>
+        </div>
+
+        <div class="full">
+          <label>Current test file (image)</label>
+          <div class="previewBox">
+            <div class="hint" id="fileInfo">—</div>
+            <div id="imgWrap"></div>
+          </div>
+        </div>
+
+        <div class="full">
+          <label>Replace test image (optional)</label>
+          <input id="newImage" type="file" accept="image/*" />
+          <div class="hint">If you choose a new image, it will replace the existing test file.</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="actionsLeft">
+          <button class="btn btnGhost" id="backBtn" type="button">← Back to Tests</button>
+          <span class="metaLine" id="metaLine"></span>
+        </div>
+        <div class="actionsRight">
+          <button class="btn btnGhost" id="resetBtn" type="button">Reset Form</button>
+          <button class="btn btnPrimary" id="saveBtn" type="button">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ----------------------------
+  // CONFIG (change if needed)
+  // ----------------------------
+  const DEFAULT_API_BASE = "http://127.0.0.1:3000";
+  const BACK_URL = "./index.html#tests"; // if your list-of-tests is somewhere else, change this
+
+  // ----------------------------
+  // DOM
+  // ----------------------------
+  const el = (id) => document.getElementById(id);
+
+  const adminKeyInput = el("adminKey");
+  const msgEl = el("msg");
+
+  const pageTitle = el("pageTitle");
+  const pageSub = el("pageSub");
+
+  const testIdEl = el("testId");
+  const titleEl = el("title");
+  const subjectEl = el("subject");
+  const levelEl = el("level");
+  const numQuestionsEl = el("numQuestions");
+  const choicesCountEl = el("choicesCount");
+  const answerKeyEl = el("answerKey");
+  const keyHintEl = el("keyHint");
+
+  const fileInfoEl = el("fileInfo");
+  const imgWrapEl = el("imgWrap");
+  const newImageEl = el("newImage");
+
+  const reloadBtn = el("reloadBtn");
+  const resetBtn = el("resetBtn");
+  const saveBtn = el("saveBtn");
+  const backBtn = el("backBtn");
+  const metaLine = el("metaLine");
+
+  // ----------------------------
+  // State
+  // ----------------------------
+  const url = new URL(window.location.href);
+  const TEST_ID = url.searchParams.get("id");
+
+  let original = null; // snapshot for reset
+  let lastLoaded = null;
+
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+  function getApiBase(){
+    return localStorage.getItem("IGLOO_API_BASE") || DEFAULT_API_BASE;
+  }
+  function getAdminKey(){
+    return (localStorage.getItem("IGLOO_ADMIN_KEY") || "").trim();
+  }
+  function setAdminKey(v){
+    localStorage.setItem("IGLOO_ADMIN_KEY", (v || "").trim());
+  }
+
+  function setMsg(type, text){
+    msgEl.className = "msg " + (type || "");
+    msgEl.textContent = text || "";
+    msgEl.style.display = text ? "block" : "none";
+  }
+
+  function lettersForChoices(count){
+    return "ABCDE".slice(0, Number(count) === 4 ? 4 : 5);
+  }
+
+  function normalizeKey(raw){
+    return String(raw || "").toUpperCase().replace(/\s+/g, "").trim();
+  }
+
+  function buildKeyString(answerMap, n, letters){
+    // answer_key is like { q1: 0, q2: 3, ... }
+    const out = [];
+    for (let i = 1; i <= n; i++){
+      const idx = answerMap?.["q" + i];
+      out.push(typeof idx === "number" && idx >= 0 && idx < letters.length ? letters[idx] : "");
+    }
+    return out.join("");
+  }
+
+  function renderImagePreview(apiBase, imageUrl){
+    imgWrapEl.innerHTML = "";
+    if (!imageUrl){
+      fileInfoEl.textContent = "—";
+      return;
+    }
+    const full = apiBase.replace(/\/+$/, "") + imageUrl; // imageUrl begins with /uploads/...
+    fileInfoEl.textContent = imageUrl;
+
+    const img = document.createElement("img");
+    img.className = "imgPreview";
+    img.alt = "Test image preview";
+    img.src = full;
+    imgWrapEl.appendChild(img);
+  }
+
+  async function apiFetch(path, options = {}){
+    const apiBase = getApiBase().replace(/\/+$/, "");
+    const url = apiBase + path;
+
+    const headers = new Headers(options.headers || {});
+    const key = getAdminKey();
+    if (key) headers.set("x-admin-key", key);
+
+    const res = await fetch(url, { ...options, headers });
+    return { res, url };
+  }
+
+  function updateKeyHint(){
+    const n = Number(numQuestionsEl.value || 0);
+    const letters = lettersForChoices(choicesCountEl.value);
+    keyHintEl.textContent =
+      `Expected: exactly ${n || "N"} letters using only ${letters}. (No spaces)`;
+  }
+
+  // ----------------------------
+  // Load / Fill
+  // ----------------------------
+  async function loadTest(){
+    setMsg("", "");
+    imgWrapEl.innerHTML = "";
+    fileInfoEl.textContent = "—";
+
+    if (!TEST_ID){
+      pageTitle.textContent = "Missing test id";
+      pageSub.textContent = "Open this page like edit-test.html?id=YOUR_TEST_ID";
+      setMsg("err", "No test id found in the URL.");
+      return;
+    }
+
+    // Require admin key before calling admin endpoints
+    if (!getAdminKey()){
+      pageTitle.textContent = "Admin Key required";
+      pageSub.textContent = "Enter your Admin Key above to load the test.";
+      setMsg("err", "Enter the Admin Key above (it must match server ADMIN_KEY), then click Reload.");
+      return;
+    }
+
+    pageTitle.textContent = "Loading…";
+    pageSub.textContent = "Fetching test data…";
+    metaLine.textContent = "";
+
+    const { res, url: calledUrl } = await apiFetch(`/admin/tests/${encodeURIComponent(TEST_ID)}`, {
+      method: "GET",
+    });
+
+    if (!res.ok){
+      let detail = "";
+      try { detail = JSON.stringify(await res.json()); } catch { /* ignore */ }
+
+      if (res.status === 401){
+        pageTitle.textContent = "Unauthorized";
+        pageSub.textContent = "Admin key is missing or incorrect.";
+        setMsg("err",
+          `Unauthorized (401).\n` +
+          `Make sure the Admin Key matches your server's ADMIN_KEY.\n` +
+          `Request: ${calledUrl}`
+        );
+        return;
+      }
+
+      pageTitle.textContent = "Could not load test";
+      pageSub.textContent = "Check backend route and server logs.";
+      setMsg("err",
+        `Failed to load test (${res.status}).\n` +
+        `Request: ${calledUrl}\n` +
+        (detail ? `Response: ${detail}` : "")
+      );
+      return;
+    }
+
+    const data = await res.json();
+    lastLoaded = data;
+
+    // Derive q info
+    const q = data.questions || {};
+    const n = Number(q.num_questions || 0);
+    const c = Number(q.choices_count || (Array.isArray(q.choices) ? q.choices.length : 5)) || 5;
+    const letters = lettersForChoices(c);
+
+    // Fill UI
+    testIdEl.value = data.id || TEST_ID;
+    titleEl.value = data.title || "";
+    subjectEl.value = data.subject || "";
+    levelEl.value = data.level || "";
+
+    numQuestionsEl.value = n || "";
+    choicesCountEl.value = String(c === 4 ? 4 : 5);
+
+    // Build answer key string from map (server stores JSON map)
+    const keyStr = buildKeyString(data.answer_key || {}, n || 0, letters);
+    answerKeyEl.value = keyStr;
+
+    // Image preview (IMPORTANT: must use API_BASE + /uploads/..)
+    renderImagePreview(getApiBase(), q.image_url || null);
+
+    pageTitle.textContent = data.title ? `Editing: ${data.title}` : "Edit Test";
+    pageSub.textContent = "Update fields, then Save Changes at the bottom.";
+
+    metaLine.textContent = data.created_at ? `Created: ${new Date(data.created_at).toLocaleString()}` : "";
+
+    updateKeyHint();
+
+    // Snapshot for reset
+    original = {
+      title: titleEl.value,
+      numQuestions: numQuestionsEl.value,
+      choicesCount: choicesCountEl.value,
+      answerKey: answerKeyEl.value,
+      image_url: q.image_url || null,
+      subject: subjectEl.value,
+      level: levelEl.value,
+    };
+
+    setMsg("ok", "Loaded successfully.");
+    // clear file input on load
+    newImageEl.value = "";
+  }
+
+  // ----------------------------
+  // Save
+  // ----------------------------
+  function validateForm(){
+    const n = Number(numQuestionsEl.value);
+    if (!Number.isFinite(n) || n < 1 || n > 200){
+      return `Number of questions must be between 1 and 200.`;
+    }
+
+    const c = Number(choicesCountEl.value) === 4 ? 4 : 5;
+    const letters = lettersForChoices(c);
+
+    const key = normalizeKey(answerKeyEl.value);
+    if (key.length !== n){
+      return `Answer key must be exactly ${n} letters (currently ${key.length}).`;
+    }
+    for (const ch of key){
+      if (!letters.includes(ch)){
+        return `Answer key can only use letters: ${letters}`;
+      }
+    }
+    return null;
+  }
+
+  async function saveChanges(){
+    setMsg("", "");
+
+    if (!getAdminKey()){
+      setMsg("err", "Enter Admin Key first (top right), then try again.");
+      return;
+    }
+
+    const err = validateForm();
+    if (err){
+      setMsg("err", err);
+      return;
+    }
+
+    saveBtn.disabled = true;
+    resetBtn.disabled = true;
+    reloadBtn.disabled = true;
+
+    try{
+      const n = Number(numQuestionsEl.value);
+      const c = Number(choicesCountEl.value) === 4 ? 4 : 5;
+      const key = normalizeKey(answerKeyEl.value);
+
+      const fd = new FormData();
+      fd.append("title", titleEl.value || "");
+      fd.append("subject", subjectEl.value || "");
+      fd.append("level", levelEl.value || "");
+      fd.append("num_questions", String(n));
+      fd.append("choices_count", String(c));
+      fd.append("answer_key", key);
+
+      if (newImageEl.files && newImageEl.files[0]){
+        fd.append("image", newImageEl.files[0]);
+      }
+
+      const { res, url: calledUrl } = await apiFetch(`/admin/tests/${encodeURIComponent(TEST_ID)}`, {
+        method: "PUT",
+        body: fd,
+      });
+
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok){
+        setMsg("err",
+          `Save failed (${res.status}).\n` +
+          `Request: ${calledUrl}\n` +
+          `Response: ${JSON.stringify(payload)}`
+        );
+        return;
+      }
+
+      setMsg("ok", "Saved. Returning to tests list…");
+      // Redirect back to list page
+      window.location.href = BACK_URL;
+    } finally {
+      saveBtn.disabled = false;
+      resetBtn.disabled = false;
+      reloadBtn.disabled = false;
+    }
+  }
+
+  // ----------------------------
+  // Reset
+  // ----------------------------
+  function resetForm(){
+    if (!original){
+      setMsg("err", "Nothing to reset yet. Load the test first.");
+      return;
+    }
+    titleEl.value = original.title;
+    numQuestionsEl.value = original.numQuestions;
+    choicesCountEl.value = original.choicesCount;
+    answerKeyEl.value = original.answerKey;
+    newImageEl.value = "";
+    renderImagePreview(getApiBase(), original.image_url);
+    updateKeyHint();
+    setMsg("ok", "Form reset to last loaded values.");
+  }
+
+  // ----------------------------
+  // Wire up events
+  // ----------------------------
+  function init(){
+    // Load saved admin key
+    adminKeyInput.value = getAdminKey();
+    adminKeyInput.addEventListener("input", () => {
+      setAdminKey(adminKeyInput.value);
+    });
+    adminKeyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loadTest();
+    });
+
+    choicesCountEl.addEventListener("change", updateKeyHint);
+    numQuestionsEl.addEventListener("input", updateKeyHint);
+
+    reloadBtn.addEventListener("click", loadTest);
+    resetBtn.addEventListener("click", resetForm);
+    saveBtn.addEventListener("click", saveChanges);
+    backBtn.addEventListener("click", () => (window.location.href = BACK_URL));
+
+    // Initial
+    loadTest();
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Igloo Study Admin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --navy:#0b3a6f;
+      --navy2:#092f59;
+      --gold:#f3b31a;
+      --bg:#071c33;
+      --ink:#0f172a;
+      --muted:#556070;
+      --border:rgba(15,23,42,0.12);
+      --shadow: 0 12px 40px rgba(0,0,0,0.18);
+      --radius:16px;
+      --card:#ffffff;
+      --good:#0b6b2f;
+      --bad:#b00020;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1000px 600px at 30% -200px, rgba(243,179,26,0.20), transparent 55%),
+                  linear-gradient(180deg, var(--navy) 0%, #0a2c52 55%, var(--bg) 100%);
+      min-height:100vh;
+      color: var(--ink);
+    }
+
+    .app{
+      display:grid;
+      grid-template-columns: 280px 1fr;
+      min-height:100vh;
+    }
+
+    .sidebar{
+      background: rgba(255,255,255,0.08);
+      border-right: 1px solid rgba(255,255,255,0.12);
+      padding: 18px 14px;
+      color: #fff;
+      position: sticky;
+      top:0;
+      height:100vh;
+      overflow:auto;
+    }
+
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      padding: 8px 8px 16px;
+    }
+    .logo{
+      width:48px; height:48px;
+      border-radius: 14px;
+      overflow:hidden;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.25);
+      background: rgba(255,255,255,0.08);
+      display:flex; align-items:center; justify-content:center;
+      flex: 0 0 auto;
+    }
+    .logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .brandTitle{
+      line-height:1.15;
+    }
+    .brandTitle h1{
+      margin:0;
+      font-family:"Libre Baskerville", serif;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+    }
+    .brandTitle p{
+      margin:6px 0 0;
+      font-size: 12px;
+      color: rgba(255,255,255,0.78);
+    }
+
+    .nav{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      padding: 6px;
+    }
+    .nav button{
+      width:100%;
+      text-align:left;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color:#fff;
+      padding: 12px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .nav button:hover{
+      background: rgba(255,255,255,0.10);
+    }
+    .nav button.active{
+      background: rgba(243,179,26,0.18);
+      border-color: rgba(243,179,26,0.35);
+    }
+
+    .adminKeyBox{
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+    }
+    .adminKeyBox label{
+      font-size: 12px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.86);
+      display:block;
+      margin-bottom: 6px;
+    }
+    .adminKeyBox input{
+      width:100%;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.12);
+      color:#fff;
+      outline:none;
+      font-weight: 700;
+    }
+    .adminKeyHint{
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.72);
+      line-height: 1.35;
+    }
+
+    .pill{
+      display:inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(11,58,111,0.08);
+      border: 1px solid rgba(15,23,42,0.10);
+      font-weight: 800;
+      font-size: 12px;
+      color: var(--navy2);
+    }
+
+    .main{
+      padding: 22px 18px 60px;
+    }
+
+    .panel{
+      max-width: 1150px;
+      margin: 0 auto 16px;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panelHead{
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(11,58,111,0.06), transparent);
+      display:flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items:flex-start;
+    }
+    .panelHead h2{
+      margin:0;
+      font-family:"Libre Baskerville", serif;
+      font-size: 18px;
+    }
+    .panelHead p{
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .panelBody{ padding: 16px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px){
+      .app{ grid-template-columns: 1fr; }
+      .sidebar{ position: static; height:auto; }
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    label{
+      display:block;
+      font-size: 13px;
+      font-weight: 800;
+      color:#1f2937;
+      margin-bottom: 6px;
+    }
+    input, select, textarea{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background:#fff;
+      outline:none;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    textarea{ min-height: 110px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
+    input:focus, select:focus, textarea:focus{
+      border-color: rgba(11,58,111,0.35);
+      box-shadow: 0 0 0 4px rgba(11,58,111,0.10);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn{
+      border:0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 900;
+      cursor:pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .btnPrimary{ background: var(--gold); color:#1b1b1b; }
+    .btnGhost{ background: transparent; color: var(--navy2); border: 1px solid rgba(11,58,111,0.20); }
+    .btnDanger{ background: var(--bad); color:#fff; }
+    .btn:disabled{ opacity:0.6; cursor:not-allowed; }
+
+    .msg{
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .ok{ color: var(--good); }
+    .err{ color: var(--bad); }
+
+    table{ width:100%; border-collapse: collapse; }
+    th, td{
+      text-align:left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: top;
+    }
+    th{
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .right{ text-align:right; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; font-size: 12px; }
+
+    /* Modal */
+    .modalBack{
+      position: fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 16px;
+      background: rgba(0,0,0,0.48);
+      z-index: 999;
+    }
+    .modal{
+      width: min(1100px, 100%);
+      background:#fff;
+      border-radius: 16px;
+      box-shadow: 0 28px 90px rgba(0,0,0,0.35);
+      overflow:hidden;
+    }
+    .modalHead{
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      justify-content: space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .modalHead h3{
+      margin:0;
+      font-family:"Libre Baskerville", serif;
+      font-size: 18px;
+    }
+    .modalBody{
+      padding: 16px;
+      max-height: 72vh;
+      overflow:auto;
+    }
+    .qbox{
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      margin: 10px 0;
+    }
+    .small{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .hidden{ display:none !important; }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">
+          <img src="./assets/logo.png" alt="Igloo Study logo" />
+        </div>
+        <div class="brandTitle">
+          <h1>Igloo Study</h1>
+          <p>Admin Dashboard</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="active" data-view="submissions">Recent Submissions</button>
+        <button data-view="upload">Test Upload</button>
+        <button data-view="tests">List of Tests</button>
+      </nav>
+
+      <div class="adminKeyBox">
+        <label for="adminKey">Admin Key</label>
+        <input id="adminKey" placeholder="Enter ADMIN_KEY" />
+        <div class="adminKeyHint">
+          Required for admin actions.<br/>
+          Stored locally in your browser after you type it.
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- SUBMISSIONS VIEW -->
+      <section id="view-submissions" class="view">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <h2>Recent submissions</h2>
+              <p>Click <b>View</b> to see the student’s answers and grading.</p>
+            </div>
+            <div class="right">
+              <button class="btn btnPrimary" id="refreshSubBtn">Refresh</button>
+            </div>
+          </div>
+          <div class="panelBody">
+            <div class="grid">
+              <div>
+                <label>Filter Subject</label>
+                <select id="filterSubject">
+                  <option value="">All</option>
+                  <option value="math">Math</option>
+                  <option value="english">English</option>
+                  <option value="physics">Physics</option>
+                  <option value="chem">Chemistry</option>
+                </select>
+              </div>
+              <div>
+                <label>Filter Level</label>
+                <select id="filterLevel">
+                  <option value="">All</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btnGhost" id="applySubFilterBtn">Apply Filter</button>
+              <button class="btn btnGhost" id="clearSubFilterBtn">Clear</button>
+            </div>
+
+            <div id="subMsg" class="msg"></div>
+
+            <div style="overflow:auto; margin-top:10px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Grade</th>
+                    <th>Subject</th>
+                    <th>Level</th>
+                    <th>Score</th>
+                    <th>Date</th>
+                    <th class="right"></th>
+                  </tr>
+                </thead>
+                <tbody id="subTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- UPLOAD VIEW -->
+      <section id="view-upload" class="view hidden">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <h2>Upload a test (image-based)</h2>
+              <p>
+                Upload a <b>test image</b>, then paste the answer key as letters <b>A–E</b> (or A–D).<br/>
+                Example for 10 questions: <span class="mono">ABEDCABDCE</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="panelBody">
+            <div class="grid">
+              <div>
+                <label>Subject</label>
+                <select id="uSubject">
+                  <option value="math">Math</option>
+                  <option value="english">English</option>
+                  <option value="physics">Physics</option>
+                  <option value="chem">Chemistry</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Level</label>
+                <select id="uLevel">
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label>Title (optional)</label>
+                <input id="uTitle" placeholder="e.g., Math Beginner Diagnostic (Jan 2026)" />
+              </div>
+
+              <div>
+                <label>Number of questions</label>
+                <input id="uNumQuestions" type="number" min="1" max="200" value="10" />
+              </div>
+
+              <div>
+                <label>Choices per question</label>
+                <select id="uChoices">
+                  <option value="5" selected>A–E (5 choices)</option>
+                  <option value="4">A–D (4 choices)</option>
+                </select>
+              </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label>Test image</label>
+                <input id="uImage" type="file" accept="image/*" />
+                <div class="small">PNG/JPG recommended. Keep it under ~5MB.</div>
+              </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label>Answer key (letters only)</label>
+                <textarea id="uAnswerKey" placeholder="Paste something like: ABEDCABDCE"></textarea>
+                <div class="small">
+                  Must be exactly the same length as “Number of questions”.
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btnPrimary" id="uploadBtn">Upload Test</button>
+              <button class="btn btnGhost" id="fillExampleBtn" type="button">Fill Example Key</button>
+            </div>
+
+            <div id="uploadMsg" class="msg"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TESTS VIEW -->
+      <section id="view-tests" class="view hidden">
+        <div class="panel">
+          <div class="panelHead">
+            <div>
+              <h2>List of tests</h2>
+              <p>Filter and manage tests. Use <b>Edit</b> to open the edit page.</p>
+            </div>
+            <div class="right">
+              <button class="btn btnPrimary" id="refreshTestsBtn">Refresh</button>
+            </div>
+          </div>
+
+          <div class="panelBody">
+            <div class="grid">
+              <div>
+                <label>Filter Subject</label>
+                <select id="testsFilterSubject">
+                  <option value="">All</option>
+                  <option value="math">Math</option>
+                  <option value="english">English</option>
+                  <option value="physics">Physics</option>
+                  <option value="chem">Chemistry</option>
+                </select>
+              </div>
+              <div>
+                <label>Filter Level</label>
+                <select id="testsFilterLevel">
+                  <option value="">All</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </div>
+              <div style="grid-column:1/-1;">
+                <label>Search Title</label>
+                <input id="testsFilterSearch" placeholder="Search title..." />
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btnGhost" id="testsApplyBtn">Apply Filter</button>
+              <button class="btn btnGhost" id="testsClearBtn">Clear</button>
+            </div>
+
+            <div id="testsMsg" class="msg"></div>
+
+            <div style="overflow:auto; margin-top:10px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Subject</th>
+                    <th>Level</th>
+                    <th>Created</th>
+                    <th class="right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="testsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL (details) -->
+  <div id="modalBack" class="modalBack" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modalHead">
+        <div>
+          <h3 id="modalTitle">Modal</h3>
+          <div class="small" id="modalSub"></div>
+        </div>
+        <button class="btn btnGhost" id="closeModalBtn" type="button">Close</button>
+      </div>
+      <div class="modalBody" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:3000";
+    const ADMIN_KEY_STORAGE = "igloo_admin_key_v1";
+
+    const adminKeyEl = document.getElementById("adminKey");
+    const navButtons = document.querySelectorAll(".nav button[data-view]");
+    const views = {
+      submissions: document.getElementById("view-submissions"),
+      upload: document.getElementById("view-upload"),
+      tests: document.getElementById("view-tests"),
+    };
+
+    // Submissions
+    const refreshSubBtn = document.getElementById("refreshSubBtn");
+    const applySubFilterBtn = document.getElementById("applySubFilterBtn");
+    const clearSubFilterBtn = document.getElementById("clearSubFilterBtn");
+    const filterSubject = document.getElementById("filterSubject");
+    const filterLevel = document.getElementById("filterLevel");
+    const subMsg = document.getElementById("subMsg");
+    const subTbody = document.getElementById("subTbody");
+
+    // Upload
+    const uSubject = document.getElementById("uSubject");
+    const uLevel = document.getElementById("uLevel");
+    const uTitle = document.getElementById("uTitle");
+    const uNumQuestions = document.getElementById("uNumQuestions");
+    const uChoices = document.getElementById("uChoices");
+    const uImage = document.getElementById("uImage");
+    const uAnswerKey = document.getElementById("uAnswerKey");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const fillExampleBtn = document.getElementById("fillExampleBtn");
+    const uploadMsg = document.getElementById("uploadMsg");
+
+    // Tests list
+    const refreshTestsBtn = document.getElementById("refreshTestsBtn");
+    const testsMsg = document.getElementById("testsMsg");
+    const testsTbody = document.getElementById("testsTbody");
+    const testsFilterSubject = document.getElementById("testsFilterSubject");
+    const testsFilterLevel = document.getElementById("testsFilterLevel");
+    const testsFilterSearch = document.getElementById("testsFilterSearch");
+    const testsApplyBtn = document.getElementById("testsApplyBtn");
+    const testsClearBtn = document.getElementById("testsClearBtn");
+
+    // Modal
+    const modalBack = document.getElementById("modalBack");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalSub = document.getElementById("modalSub");
+    const modalBody = document.getElementById("modalBody");
+
+    function setMsg(el, text, kind){
+      el.className = "msg " + (kind || "");
+      el.textContent = text || "";
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"
+      }[c]));
+    }
+
+    function formatDate(iso){
+      try { return new Date(iso).toLocaleString(); }
+      catch { return iso || ""; }
+    }
+
+    function getAdminKey(){
+      return adminKeyEl.value.trim();
+    }
+
+    function requireKeyOrWarn(){
+      const k = getAdminKey();
+      if(!k){
+        setMsg(subMsg, "Enter Admin Key on the left sidebar first.", "err");
+        setMsg(uploadMsg, "Enter Admin Key on the left sidebar first.", "err");
+        setMsg(testsMsg, "Enter Admin Key on the left sidebar first.", "err");
+        return null;
+      }
+      return k;
+    }
+
+    function switchView(name){
+      for(const [k, el] of Object.entries(views)){
+        el.classList.toggle("hidden", k !== name);
+      }
+      navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === name));
+      if(name === "submissions") loadSubmissions();
+      if(name === "tests") loadTests();
+    }
+
+    adminKeyEl.addEventListener("input", () => {
+      localStorage.setItem(ADMIN_KEY_STORAGE, adminKeyEl.value);
+    });
+
+    navButtons.forEach(btn => {
+      btn.addEventListener("click", () => switchView(btn.dataset.view));
+    });
+
+    // =========================
+    // Submissions
+    // =========================
+    async function loadSubmissions(){
+      const key = requireKeyOrWarn();
+      if(!key) return;
+
+      setMsg(subMsg, "Loading…", "");
+      subTbody.innerHTML = "";
+
+      try{
+        const res = await fetch(`${API_BASE}/admin/submissions`, {
+          headers: { "x-admin-key": key }
+        });
+        const rows = await res.json().catch(() => []);
+        if(!res.ok){
+          setMsg(subMsg, "Failed: " + JSON.stringify(rows), "err");
+          return;
+        }
+
+        const fs = filterSubject.value;
+        const fl = filterLevel.value;
+
+        const filtered = rows.filter(r => {
+          if(fs && r.subject !== fs) return false;
+          if(fl && r.level !== fl) return false;
+          return true;
+        });
+
+        if(!filtered.length){
+          setMsg(subMsg, "No submissions yet (or none match filters).", "");
+          return;
+        }
+
+        setMsg(subMsg, `${filtered.length} shown (max 200).`, "ok");
+
+        for(const r of filtered){
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+  <td>${escapeHtml(r.name || "")}</td>
+  <td>${escapeHtml(String(r.grade ?? ""))}</td>
+  <td><span class="pill">${escapeHtml(r.subject || "")}</span></td>
+  <td><span class="pill">${escapeHtml(r.level || "")}</span></td>
+  <td><b>${escapeHtml(String(r.score ?? ""))}%</b></td>
+  <td>${escapeHtml(formatDate(r.submitted_at))}</td>
+  <td class="right">
+    <button class="btn btnGhost" data-id="${escapeHtml(r.id)}">View</button>
+    <button class="btn btnDanger" data-del-sub="${escapeHtml(r.id)}">Delete</button>
+  </td>
+`;
+          subTbody.appendChild(tr);
+        }
+
+        subTbody.querySelectorAll("button[data-id]").forEach(btn => {
+          btn.addEventListener("click", () => openSubmission(btn.getAttribute("data-id")));
+        });
+        subTbody.querySelectorAll("button[data-del-sub]").forEach(btn => {
+  btn.addEventListener("click", () => deleteSubmission(btn.getAttribute("data-del-sub")));
+});
+
+
+      }catch(e){
+        setMsg(subMsg, "Could not reach server.", "err");
+      }
+    }
+
+    refreshSubBtn.onclick = loadSubmissions;
+    applySubFilterBtn.onclick = loadSubmissions;
+    clearSubFilterBtn.onclick = () => {
+      filterSubject.value = "";
+      filterLevel.value = "";
+      loadSubmissions();
+    };
+
+    async function deleteSubmission(id){
+  const key = requireKeyOrWarn();
+  if(!key) return;
+
+  const ok = confirm("Delete this submission? This cannot be undone.");
+  if(!ok) return;
+
+  try{
+    const res = await fetch(`${API_BASE}/admin/submissions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { "x-admin-key": key }
+    });
+    const out = await res.json().catch(()=> ({}));
+    if(!res.ok){
+      alert("Delete failed: " + JSON.stringify(out));
+      return;
+    }
+    await loadSubmissions();
+  }catch(e){
+    alert("Delete failed: could not reach server.");
+  }
+}
+
+
+    async function openSubmission(id){
+      const key = requireKeyOrWarn();
+      if(!key) return;
+
+      modalTitle.textContent = "Loading…";
+      modalSub.textContent = "";
+      modalBody.innerHTML = "";
+      modalBack.style.display = "flex";
+
+      try{
+        const res = await fetch(`${API_BASE}/admin/submissions/${id}`, {
+          headers: { "x-admin-key": key }
+        });
+        const s = await res.json().catch(() => ({}));
+        if(!res.ok){
+          modalTitle.textContent = "Error";
+          modalBody.innerHTML = `<div class="msg err">${escapeHtml(JSON.stringify(s))}</div>`;
+          return;
+        }
+
+        modalTitle.textContent = `${s.name} • ${s.subject}/${s.level} • ${s.score}%`;
+        modalSub.textContent = `Grade: ${s.grade} • Email: ${s.email || "(n/a)"} • Phone: ${s.phone || "(n/a)"} • ${formatDate(s.submitted_at)}`;
+
+        const answers = s.answers || {};
+        const keyMap = s.answer_key || {};
+        const meta = s.questions || {};
+        const n = meta.num_questions || 0;
+        const choicesCount = meta.choices_count || 5;
+        const letters = "ABCDE".slice(0, choicesCount);
+
+        let html = `<div class="mono">Submission ID: ${escapeHtml(s.id)}</div>`;
+        html += `<div class="small">Test Type: ${escapeHtml(meta.type || "unknown")} • Questions: ${escapeHtml(String(n))} • Choices: ${escapeHtml(letters)}</div>`;
+
+        if(meta.type === "image" && meta.image_url){
+          html += `<div class="qbox">
+                    <div style="font-weight:900; margin-bottom:8px;">Test image</div>
+                    <img src="${API_BASE + meta.image_url}" alt="Test image" style="width:100%; border-radius:14px; border:1px solid var(--border);" />
+                  </div>`;
+        }
+
+        for(let i=1; i<=n; i++){
+          const qid = `q${i}`;
+          const chosenIdx = answers[qid];
+          const correctIdx = keyMap[qid];
+
+          const chosen = (chosenIdx === undefined) ? "(no answer)" : letters[chosenIdx] ?? "(invalid)";
+          const correct = (correctIdx === undefined) ? "(missing key)" : letters[correctIdx] ?? "(invalid)";
+          const isCorrect = chosenIdx === correctIdx;
+
+          html += `
+            <div class="qbox">
+              <div style="font-weight:900;">Q${i}</div>
+              <div class="small">Chosen: <b>${escapeHtml(chosen)}</b></div>
+              <div class="small">Correct: <b>${escapeHtml(correct)}</b></div>
+              <div class="small" style="font-weight:900; color:${isCorrect ? "#0b6b2f" : "#b00020"};">
+                ${isCorrect ? "Correct ✅" : "Incorrect ❌"}
+              </div>
+            </div>
+          `;
+        }
+
+        modalBody.innerHTML = html;
+
+      }catch(e){
+        modalTitle.textContent = "Error";
+        modalBody.innerHTML = `<div class="msg err">Could not reach server.</div>`;
+      }
+    }
+
+    function closeModal(){ modalBack.style.display = "none"; }
+    closeModalBtn.onclick = closeModal;
+    modalBack.addEventListener("click", (e) => { if(e.target === modalBack) closeModal(); });
+
+    // =========================
+    // Upload test (image)
+    // =========================
+    fillExampleBtn.onclick = () => {
+      const n = parseInt(uNumQuestions.value, 10) || 10;
+      const c = parseInt(uChoices.value, 10) || 5;
+      const letters = "ABCDE".slice(0, c);
+      let k = "";
+      for(let i=0;i<n;i++) k += letters[i % letters.length];
+      uAnswerKey.value = k;
+      setMsg(uploadMsg, "Example key filled.", "ok");
+    };
+
+    async function uploadTest(){
+      const key = requireKeyOrWarn();
+      if(!key) return;
+
+      const subject = uSubject.value;
+      const level = uLevel.value;
+      const title = uTitle.value.trim();
+      const numQ = parseInt(uNumQuestions.value, 10);
+      const choicesCount = parseInt(uChoices.value, 10);
+      const file = uImage.files?.[0];
+      const answerKey = (uAnswerKey.value || "").trim().toUpperCase().replace(/\s+/g, "");
+
+      if(!Number.isFinite(numQ) || numQ < 1 || numQ > 200){
+        setMsg(uploadMsg, "Number of questions must be 1–200.", "err");
+        return;
+      }
+      if(!file){
+        setMsg(uploadMsg, "Please choose a test image file.", "err");
+        return;
+      }
+
+      const allowedLetters = "ABCDE".slice(0, choicesCount);
+      if(answerKey.length !== numQ){
+        setMsg(uploadMsg, `Answer key must be exactly length ${numQ}.`, "err");
+        return;
+      }
+      for(const ch of answerKey){
+        if(!allowedLetters.includes(ch)){
+          setMsg(uploadMsg, `Answer key has invalid letter "${ch}". Allowed: ${allowedLetters}`, "err");
+          return;
+        }
+      }
+
+      const fd = new FormData();
+      fd.append("subject", subject);
+      fd.append("level", level);
+      fd.append("title", title);
+      fd.append("num_questions", String(numQ));
+      fd.append("choices_count", String(choicesCount));
+      fd.append("answer_key", answerKey);
+      fd.append("image", file);
+
+      uploadBtn.disabled = true;
+      setMsg(uploadMsg, "Uploading…", "");
+
+      try{
+        const res = await fetch(`${API_BASE}/admin/tests/upload`, {
+          method: "POST",
+          headers: { "x-admin-key": key },
+          body: fd
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok){
+          setMsg(uploadMsg, "Upload failed: " + JSON.stringify(data), "err");
+          return;
+        }
+
+        setMsg(uploadMsg, `Uploaded ✅ ${data.subject}/${data.level} — ${data.title}`, "ok");
+        uImage.value = "";
+      }catch(e){
+        setMsg(uploadMsg, "Upload failed: could not reach server.", "err");
+      }finally{
+        uploadBtn.disabled = false;
+      }
+    }
+
+    uploadBtn.onclick = uploadTest;
+
+    // =========================
+    // Tests list + filter + edit/delete
+    // =========================
+    async function loadTests(){
+      const key = requireKeyOrWarn();
+      if(!key) return;
+
+      setMsg(testsMsg, "Loading…", "");
+      testsTbody.innerHTML = "";
+
+      try{
+        const res = await fetch(`${API_BASE}/admin/tests`, {
+          headers: { "x-admin-key": key }
+        });
+        const rows = await res.json().catch(() => []);
+        if(!res.ok){
+          setMsg(testsMsg, "Failed: " + JSON.stringify(rows), "err");
+          return;
+        }
+
+        const fs = testsFilterSubject.value;
+        const fl = testsFilterLevel.value;
+        const q = (testsFilterSearch.value || "").trim().toLowerCase();
+
+        const filtered = rows.filter(t => {
+          if(fs && t.subject !== fs) return false;
+          if(fl && t.level !== fl) return false;
+          if(q && !(t.title || "").toLowerCase().includes(q)) return false;
+          return true;
+        });
+
+        if(!filtered.length){
+          setMsg(testsMsg, "No tests match your filters.", "");
+          return;
+        }
+
+        setMsg(testsMsg, `${filtered.length} shown (max 200).`, "ok");
+
+        for(const t of filtered){
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${escapeHtml(t.title || "")}</td>
+            <td><span class="pill">${escapeHtml(t.subject || "")}</span></td>
+            <td><span class="pill">${escapeHtml(t.level || "")}</span></td>
+            <td>${escapeHtml(formatDate(t.created_at))}</td>
+            <td class="right">
+              <button class="btn btnGhost" data-open="${escapeHtml(t.id)}">Open</button>
+              <button class="btn btnGhost" data-edit="${escapeHtml(t.id)}">Edit</button>
+              <button class="btn btnDanger" data-del="${escapeHtml(t.id)}">Delete</button>
+            </td>
+          `;
+          testsTbody.appendChild(tr);
+        }
+
+        // Open modal
+        testsTbody.querySelectorAll("button[data-open]").forEach(btn => {
+          btn.addEventListener("click", () => openTest(btn.getAttribute("data-open")));
+        });
+
+        // Edit -> new page
+        testsTbody.querySelectorAll("button[data-edit]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-edit");
+            window.location.href = `./edit-test.html?id=${encodeURIComponent(id)}`;
+          });
+        });
+
+        // Delete
+        testsTbody.querySelectorAll("button[data-del]").forEach(btn => {
+          btn.addEventListener("click", () => deleteTest(btn.getAttribute("data-del")));
+        });
+
+      }catch(e){
+        setMsg(testsMsg, "Could not reach server.", "err");
+      }
+    }
+
+    async function openTest(testId) {
+      const key = requireKeyOrWarn();
+      if (!key) return;
+
+      modalTitle.textContent = "Loading test…";
+      modalSub.textContent = "";
+      modalBody.innerHTML = "";
+      modalBack.style.display = "flex";
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/tests/${testId}`, {
+          headers: { "x-admin-key": key }
+        });
+        const t = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          modalTitle.textContent = "Error";
+          modalBody.innerHTML = `<div class="msg err">${escapeHtml(JSON.stringify(t))}</div>`;
+          return;
+        }
+
+        modalTitle.textContent = `${t.title} • ${t.subject}/${t.level}`;
+        modalSub.textContent = `Created: ${formatDate(t.created_at)} • ID: ${t.id}`;
+
+        const meta = t.questions || {};
+        const answerKey = t.answer_key || {};
+        const n = meta.num_questions || 0;
+        const choicesCount = meta.choices_count || (meta.choices?.length || 5);
+        const letters = "ABCDE".slice(0, choicesCount);
+
+        let html = `<div class="small">Questions: <b>${n}</b> • Choices: <b>${escapeHtml(letters)}</b></div>`;
+
+        if (meta.type === "image" && meta.image_url) {
+          html += `
+            <div class="qbox">
+              <div style="font-weight:900; margin-bottom:8px;">Test image</div>
+              <img src="${API_BASE + meta.image_url}"
+                   style="width:100%; border-radius:14px; border:1px solid rgba(15,23,42,0.12);" />
+            </div>
+          `;
+        }
+
+        let keyStr = "";
+        for (let i = 1; i <= n; i++) {
+          const idx = answerKey[`q${i}`];
+          keyStr += (idx === undefined) ? "?" : (letters[idx] || "?");
+        }
+
+        html += `
+          <div class="qbox">
+            <div style="font-weight:900;">Answer key</div>
+            <div class="mono" style="white-space:pre-wrap;">${escapeHtml(keyStr)}</div>
+          </div>
+        `;
+
+        modalBody.innerHTML = html;
+
+      } catch (e) {
+        modalTitle.textContent = "Error";
+        modalBody.innerHTML = `<div class="msg err">Could not reach server.</div>`;
+      }
+    }
+
+    async function deleteTest(testId){
+      const key = requireKeyOrWarn();
+      if(!key) return;
+
+      // IMPORTANT: test only (not submissions)
+      if(!confirm("Delete ONLY this test? (Submissions will NOT be deleted)")) return;
+
+      const res = await fetch(`${API_BASE}/admin/tests/${testId}`, {
+        method: "DELETE",
+        headers: { "x-admin-key": key }
+      });
+
+      const out = await res.json().catch(()=> ({}));
+      if(!res.ok){
+        alert("Delete failed: " + JSON.stringify(out));
+        return;
+      }
+
+      loadTests();
+    }
+
+    refreshTestsBtn.onclick = loadTests;
+    testsApplyBtn.onclick = loadTests;
+    testsClearBtn.onclick = () => {
+      testsFilterSubject.value = "";
+      testsFilterLevel.value = "";
+      testsFilterSearch.value = "";
+      loadTests();
+    };
+
+    // Init
+    (function init(){
+      const saved = localStorage.getItem(ADMIN_KEY_STORAGE);
+      if(saved) adminKeyEl.value = saved;
+      switchView("submissions");
+    })();
+  </script>
+</body>
+</html>

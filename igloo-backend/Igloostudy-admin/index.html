@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Igloo Study Admin</title>
+  <style>
+    body { font-family: system-ui; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0; }
+    input, textarea { width: 100%; padding: 10px; margin-top: 6px; border-radius: 10px; border: 1px solid #ccc; }
+    button { padding: 10px 14px; border-radius: 10px; border: 0; cursor: pointer; }
+    pre { background: #111; color: #eee; padding: 12px; border-radius: 12px; overflow:auto; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Igloo Study Admin</h1>
+
+  <div class="card">
+    <h2>1) Upload Test JSON</h2>
+
+    <div class="row">
+      <div>
+        <label>API Base</label>
+        <input id="apiBase" value="http://localhost:3000" />
+      </div>
+      <div>
+        <label>Admin Key (x-admin-key)</label>
+        <input id="adminKey" placeholder="Paste ADMIN_KEY from .env" />
+      </div>
+    </div>
+
+    <label>Test JSON</label>
+    <textarea id="testJson" rows="16"></textarea>
+
+    <p id="msg"></p>
+    <button id="uploadBtn">Upload</button>
+  </div>
+
+  <div class="card">
+    <h2>2) View Latest Submissions</h2>
+    <button id="refreshBtn">Refresh List</button>
+    <pre id="listOut">[]</pre>
+  </div>
+
+  <script>
+    const sample = {
+      subject: "math",
+      level: "beginner",
+      title: "Math Beginner Diagnostic",
+      questions: [
+        { id: "q1", prompt: "What is 7 + 5?", choices: ["10","11","12","13"], answer: 2 },
+        { id: "q2", prompt: "Which is a prime number?", choices: ["9","10","11","12"], answer: 2 },
+        { id: "q3", prompt: "What is 3 * 4?", choices: ["7","10","12","14"], answer: 2 }
+      ]
+    };
+    document.getElementById("testJson").value = JSON.stringify(sample, null, 2);
+
+    const msg = document.getElementById("msg");
+    const listOut = document.getElementById("listOut");
+
+    document.getElementById("uploadBtn").onclick = async () => {
+      msg.textContent = "";
+      const apiBase = document.getElementById("apiBase").value.trim();
+      const adminKey = document.getElementById("adminKey").value.trim();
+      let body;
+      try {
+        body = JSON.parse(document.getElementById("testJson").value);
+      } catch {
+        msg.textContent = "Invalid JSON.";
+        return;
+      }
+
+      const res = await fetch(`${apiBase}/admin/tests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": adminKey
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      msg.textContent = res.ok ? "Uploaded ✅ " + JSON.stringify(data) : "Upload failed: " + JSON.stringify(data);
+    };
+
+    document.getElementById("refreshBtn").onclick = async () => {
+      const apiBase = document.getElementById("apiBase").value.trim();
+      const adminKey = document.getElementById("adminKey").value.trim();
+
+      const res = await fetch(`${apiBase}/admin/submissions`, {
+        headers: { "x-admin-key": adminKey }
+      });
+
+      const data = await res.json().catch(() => []);
+      listOut.textContent = JSON.stringify(data, null, 2);
+    };
+  </script>
+</body>
+</html>

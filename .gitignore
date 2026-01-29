@@ -1,0 +1,12 @@
+# OS / editor junk
+.DS_Store
+
+# secrets
+.env
+.env.*
+
+# Node
+node_modules/
+
+# your backend uploads (don’t commit generated files)
+igloo-backend/uploads/
