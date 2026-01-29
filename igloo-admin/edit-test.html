@@ -382,8 +382,18 @@
     const BACK_URL = "./index.html#tests"; // your admin list page
   
     const STORAGE_ADMIN_KEY = "IGLOO_ADMIN_KEY";
+    // --- simple login gate ---
+(() => {
+  const saved = (localStorage.getItem(STORAGE_ADMIN_KEY) || "").trim();
+  if (!saved) {
+    const next = location.pathname + location.search + location.hash;
+    location.href = `./login.html?next=${encodeURIComponent(next)}`;
+  }
+})();
+
     const STORAGE_API_BASE  = "IGLOO_API_BASE"; // optional override
-  
+    localStorage.removeItem("IGLOO_API_BASE");
+
     // ============================
     // DOM
     // ============================
