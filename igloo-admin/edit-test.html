@@ -482,11 +482,18 @@
       const full = apiBase + imageUrl; // imageUrl begins with /uploads/...
       fileInfoEl.textContent = imageUrl;
   
-      const img = document.createElement("img");
-      img.className = "imgPreview";
-      img.alt = "Test image preview";
-      img.src = full;
-      imgWrapEl.appendChild(img);
+      if (imageUrl.toLowerCase().endsWith(".pdf")) {
+        const frame = document.createElement("iframe");
+        frame.src = full;
+        frame.style.cssText = "width:100%;height:70vh;border:none;border-radius:14px;";
+        imgWrapEl.appendChild(frame);
+      } else {
+        const img = document.createElement("img");
+        img.className = "imgPreview";
+        img.alt = "Test image preview";
+        img.src = full;
+        imgWrapEl.appendChild(img);
+      }
     }
   
     async function apiFetch(path, options = {}) {
