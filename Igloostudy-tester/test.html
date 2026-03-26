@@ -205,10 +205,15 @@
         wrap.style.display = "block";
         const full = window.API_BASE + imgUrl;
         if (imgUrl.toLowerCase().endsWith(".pdf")) {
-          wrap.style.overflow = "auto";
-          wrap.style.maxHeight = "75vh";
           wrap.style.borderRadius = "14px";
-          wrap.innerHTML = `<iframe src="${full}" style="width:100%;height:3000px;border:none;border-radius:14px;display:block;"></iframe>`;
+          wrap.style.overflow = "hidden";
+          const frame = document.createElement("iframe");
+          frame.src = full;
+          frame.style.cssText = "width:100%;height:70vh;border:none;border-radius:14px;display:block;";
+          frame.setAttribute("tabindex", "0");
+          wrap.appendChild(frame);
+          wrap.addEventListener("mouseenter", () => frame.focus());
+          wrap.addEventListener("click", () => frame.focus());
         } else {
           wrap.innerHTML = `<img src="${full}" alt="Test image" style="width:100%;" />`;
         }
