@@ -6,6 +6,7 @@ import "dotenv/config";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { v2 as cloudinary } from "cloudinary";
 
 const app = express();
 
@@ -23,6 +24,45 @@ app.use(
 );
 app.options("*", cors({ origin: true }));
 
+// ✅ Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+async function uploadToCloudinary(buffer, originalname) {
+  return new Promise((resolve, reject) => {
+    const ext = path.extname(originalname || "").toLowerCase();
+    const isPdf = ext === ".pdf";
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "igloo-study",
+        resource_type: isPdf ? "raw" : "image",
+        format: isPdf ? "pdf" : undefined,
+      },
+      (err, result) => err ? reject(err) : resolve(result)
+    );
+    uploadStream.end(buffer);
+  });
+}
+
+async function deleteFromCloudinary(url) {
+  try {
+    if (!url || !url.includes("cloudinary.com")) return;
+    // Extract public_id from URL
+    const matches = url.match(/igloo-study\/([^.]+)/);
+    if (!matches) return;
+    const publicId = "igloo-study/" + matches[1];
+    const isPdf = url.toLowerCase().endsWith(".pdf");
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: isPdf ? "raw" : "image",
+    });
+  } catch (e) {
+    console.warn("Cloudinary delete failed:", e?.message || e);
+  }
+}
+
 // ✅ DB pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -38,28 +78,11 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// ✅ Uploads folder
-const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-function safeExt(originalname) {
-  const ext = path.extname(originalname || "").toLowerCase();
-  return ext && ext.length <= 6 ? ext : ".png";
-}
-
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, uploadDir),
-  filename: (_, file, cb) => {
-    const ext = safeExt(file.originalname);
-    cb(null, `${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`);
-  },
-});
-
+// ✅ Multer (memory storage — files go to Cloudinary, not local disk)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (_, file, cb) => {
-    // Allow images and PDFs
     if (!file.mimetype?.startsWith("image/") && file.mimetype !== "application/pdf") {
       return cb(new Error("Only image or PDF uploads are allowed"));
     }
@@ -67,26 +90,16 @@ const upload = multer({
   },
 });
 
-app.use("/uploads", express.static(uploadDir));
-
 // ---------------------
 // Health
 // ---------------------
 app.get("/health", (_, res) => res.json({ ok: true }));
 
 // ---------------------
-// Helper: delete local file safely
+// Helper: delete file from Cloudinary
 // ---------------------
-function tryDeleteFile(relativeUrl) {
-  try {
-    if (!relativeUrl) return;
-    const filename = String(relativeUrl).replace(/^\/uploads\//, "");
-    if (!filename || filename.includes("..")) return;
-    const full = path.join(uploadDir, filename);
-    if (fs.existsSync(full)) fs.unlinkSync(full);
-  } catch (e) {
-    console.warn("Could not delete file:", e?.message || e);
-  }
+function tryDeleteFile(url) {
+  deleteFromCloudinary(url).catch(() => {});
 }
 
 // ---------------------
@@ -282,7 +295,8 @@ app.post("/admin/tests/upload", requireAdmin, upload.single("image"), async (req
       map[`q${i + 1}`] = idx;
     }
 
-    const imageUrl = `/uploads/${req.file.filename}`;
+    const cloudResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+    const imageUrl = cloudResult.secure_url;
     const questions = {
       type: "image",
       image_url: imageUrl,
@@ -370,7 +384,8 @@ app.put("/admin/tests/:id", requireAdmin, upload.single("image"), async (req, re
 
     if (req.file) {
       if (imageUrl) tryDeleteFile(imageUrl);
-      imageUrl = `/uploads/${req.file.filename}`;
+      const cloudResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+      imageUrl = cloudResult.secure_url;
     }
 
     const updatedQuestions = {
@@ -421,7 +436,8 @@ app.put("/admin/tests/:id/image", requireAdmin, upload.single("image"), async (r
     const q = existingRows[0].questions || {};
     const oldUrl = q?.image_url || null;
 
-    const newUrl = `/uploads/${req.file.filename}`;
+    const cloudResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+    const newUrl = cloudResult.secure_url;
     const updatedQuestions = { ...q, image_url: newUrl };
 
     const { rows } = await pool.query(
