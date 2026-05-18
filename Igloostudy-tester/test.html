@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Igloo Study - Take Test</title>
   <script src="./config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background: #f6f7fb; }
     .wrap { max-width: 1000px; margin: 22px auto; padding: 0 16px; }
@@ -205,16 +206,32 @@
         wrap.style.display = "block";
         const full = window.API_BASE + imgUrl;
         if (imgUrl.toLowerCase().endsWith(".pdf")) {
-          wrap.style.borderRadius = "14px";
-          wrap.style.overflow = "hidden";
-          const frame = document.createElement("iframe");
-          frame.style.cssText = "width:100%;height:70vh;border:none;border-radius:14px;display:block;";
-          wrap.appendChild(frame);
-          // Fetch as blob to make it same-origin so PDF viewer scroll works
-          fetch(full)
-            .then(r => r.blob())
-            .then(blob => { frame.src = URL.createObjectURL(blob); })
-            .catch(() => { frame.src = full; }); // fallback to direct URL
+          // Use PDF.js to render all pages as canvases — no iframe scroll issues
+          const pdfjsLib = window['pdfjs-dist/build/pdf'];
+          pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const container = document.createElement("div");
+          container.style.cssText = "width:100%;";
+          wrap.appendChild(container);
+          pdfjsLib.getDocument(full).promise.then(pdf => {
+            const renderPage = (num) => pdf.getPage(num).then(page => {
+              const viewport = page.getViewport({ scale: 1.5 });
+              const canvas = document.createElement("canvas");
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              canvas.style.cssText = "width:100%;display:block;margin-bottom:8px;border-radius:12px;border:1px solid #eee;";
+              container.appendChild(canvas);
+              return page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+            });
+            // Render pages sequentially
+            let chain = Promise.resolve();
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const n = i;
+              chain = chain.then(() => renderPage(n));
+            }
+          }).catch(() => {
+            container.innerHTML = `<p style="color:#b00020">Could not load PDF. <a href="${full}" target="_blank">Open in new tab</a></p>`;
+          });
         } else {
           wrap.innerHTML = `<img src="${full}" alt="Test image" style="width:100%;" />`;
         }
