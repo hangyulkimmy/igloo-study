@@ -694,6 +694,14 @@
       }
     }
 
+    // ===== WARN ON RELOAD/CLOSE DURING TEST =====
+    window.addEventListener("beforeunload", (e) => {
+      if (currentTest) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+
     // ===== EVENTS =====
     [sName, sGrade, sEmail, sPhone].forEach(el => el.addEventListener("input", syncStudentGate));
 
