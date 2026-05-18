@@ -208,12 +208,13 @@
           wrap.style.borderRadius = "14px";
           wrap.style.overflow = "hidden";
           const frame = document.createElement("iframe");
-          frame.src = full;
           frame.style.cssText = "width:100%;height:70vh;border:none;border-radius:14px;display:block;";
-          frame.setAttribute("tabindex", "0");
           wrap.appendChild(frame);
-          wrap.addEventListener("mouseenter", () => frame.focus());
-          wrap.addEventListener("click", () => frame.focus());
+          // Fetch as blob to make it same-origin so PDF viewer scroll works
+          fetch(full)
+            .then(r => r.blob())
+            .then(blob => { frame.src = URL.createObjectURL(blob); })
+            .catch(() => { frame.src = full; }); // fallback to direct URL
         } else {
           wrap.innerHTML = `<img src="${full}" alt="Test image" style="width:100%;" />`;
         }
