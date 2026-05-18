@@ -245,7 +245,7 @@
         <div class="panelBody">
           <div class="qbox" id="imgBox" style="display:none;">
             <div style="font-weight:900; margin-bottom:8px;">Test image</div>
-            <img id="testImg" class="preview" alt="Test image" />
+            <div id="testImgWrap"></div>
             <div class="small">Zoom in if needed. Answers are selected below.</div>
           </div>
 
@@ -324,7 +324,7 @@
     const metaLine = document.getElementById("metaLine");
 
     const imgBox = document.getElementById("imgBox");
-    const testImg = document.getElementById("testImg");
+    const testImgWrap = document.getElementById("testImgWrap");
 
     const sheet = document.getElementById("sheet");
     const submitBtn = document.getElementById("submitBtn");
@@ -487,10 +487,15 @@
 
         if(meta.type === "image" && meta.image_url){
           imgBox.style.display = "block";
-          testImg.src = API_BASE + meta.image_url;
+          const fullUrl = API_BASE + meta.image_url;
+          if(meta.image_url.toLowerCase().endsWith(".pdf")){
+            testImgWrap.innerHTML = `<iframe src="${fullUrl}" style="width:100%;height:70vh;border:none;border-radius:12px;display:block;"></iframe>`;
+          } else {
+            testImgWrap.innerHTML = `<img src="${fullUrl}" class="preview" alt="Test image" />`;
+          }
         }else{
           imgBox.style.display = "none";
-          testImg.removeAttribute("src");
+          testImgWrap.innerHTML = "";
         }
 
         buildSheet();
@@ -578,7 +583,7 @@
       answers = {};
       sheet.innerHTML = "";
       imgBox.style.display = "none";
-      testImg.removeAttribute("src");
+      testImgWrap.innerHTML = "";
       setMsg(leftMsg, "", "");
       setMsg(mainMsg, "", "");
       resultLine.textContent = "";
