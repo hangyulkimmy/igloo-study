@@ -200,6 +200,18 @@
           <option value="expert">Expert</option>
         </select>
 
+        <label for="timerSel">Timer (optional)</label>
+        <select id="timerSel">
+          <option value="0">No Timer</option>
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="20">20 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+
         <div class="actions">
           <button class="btn btnPrimary" id="startBtn">Start Test</button>
           <button class="btn btnGhost" id="clearBtn" type="button">Clear</button>
@@ -237,7 +249,8 @@
             <h2 id="testTitle">Test</h2>
             <p id="testSub">—</p>
           </div>
-          <div class="actions" style="margin-top:0;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div id="timerDisplay" style="display:none; font-family:'Libre Baskerville',serif; font-size:22px; font-weight:700; letter-spacing:1px; padding:6px 14px; border-radius:12px; background:rgba(11,58,111,0.08); border:1px solid rgba(11,58,111,0.15); color:var(--navy2);"></div>
             <button class="btn btnGhost" id="reloadBtn" type="button">New Random Test</button>
           </div>
         </div>
@@ -310,6 +323,8 @@
 
     const subjectEl = document.getElementById("subject");
     const levelEl = document.getElementById("level");
+    const timerSel = document.getElementById("timerSel");
+    const timerDisplay = document.getElementById("timerDisplay");
 
     const startBtn = document.getElementById("startBtn");
     const clearBtn = document.getElementById("clearBtn");
@@ -342,6 +357,48 @@
     let numQuestions = 0;
     let letters = "ABCDE";
     let answers = {};
+    let timerInterval = null;
+    let timerSecondsLeft = 0;
+
+    // ===== TIMER =====
+    function startTimer(minutes) {
+      stopTimer();
+      if (!minutes || minutes <= 0) { timerDisplay.style.display = "none"; return; }
+      timerSecondsLeft = minutes * 60;
+      timerDisplay.style.display = "block";
+      timerDisplay.style.color = "var(--navy2)";
+      timerDisplay.style.borderColor = "rgba(11,58,111,0.15)";
+      timerDisplay.style.background = "rgba(11,58,111,0.08)";
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timerSecondsLeft--;
+        updateTimerDisplay();
+        if (timerSecondsLeft <= 0) {
+          stopTimer();
+          timerDisplay.textContent = "⏰ Time's up!";
+          timerDisplay.style.color = "#b00020";
+          timerDisplay.style.background = "rgba(176,0,32,0.08)";
+          timerDisplay.style.borderColor = "rgba(176,0,32,0.25)";
+          submitBtn.click();
+        } else if (timerSecondsLeft <= 300) {
+          // Red when under 5 minutes
+          timerDisplay.style.color = "#b00020";
+          timerDisplay.style.background = "rgba(176,0,32,0.08)";
+          timerDisplay.style.borderColor = "rgba(176,0,32,0.25)";
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      timerDisplay.style.display = "none";
+    }
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timerSecondsLeft / 60).toString().padStart(2, "0");
+      const s = (timerSecondsLeft % 60).toString().padStart(2, "0");
+      timerDisplay.textContent = `⏱ ${m}:${s}`;
+    }
 
     // ===== HELPERS =====
     function setMsg(el, text, kind){
@@ -383,6 +440,11 @@
       panelHome.style.display = (which === "home") ? "block" : "none";
       panelTest.style.display = (which === "test") ? "block" : "none";
       panelSubmitted.style.display = (which === "submitted") ? "block" : "none";
+      if (which === "test") {
+        startTimer(parseInt(timerSel.value, 10));
+      } else {
+        stopTimer();
+      }
     }
 
     function computeLetters(meta){
