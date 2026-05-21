@@ -545,10 +545,14 @@
 
         if(meta.type === "image" && meta.image_url){
           imgBox.style.display = "block";
-          const fullUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
+          let fullUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
           const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
           if(isPdf){
-            testImgWrap.innerHTML = `<iframe src="${fullUrl}" style="width:100%;height:70vh;border:none;border-radius:12px;display:block;"></iframe>`;
+            // Force inline display (not download) by inserting fl_attachment:false into Cloudinary URL
+            const inlineUrl = fullUrl.includes("/raw/upload/")
+              ? fullUrl.replace("/raw/upload/", "/raw/upload/fl_attachment:false/")
+              : fullUrl;
+            testImgWrap.innerHTML = `<iframe src="${inlineUrl}" style="width:100%;height:70vh;border:none;border-radius:12px;display:block;"></iframe>`;
           } else {
             testImgWrap.innerHTML = `<img src="${fullUrl}" class="preview" alt="Test image" />`;
           }
