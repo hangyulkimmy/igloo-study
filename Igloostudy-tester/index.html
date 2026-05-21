@@ -546,7 +546,8 @@
         if(meta.type === "image" && meta.image_url){
           imgBox.style.display = "block";
           const fullUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
-          if(meta.image_url.toLowerCase().endsWith(".pdf")){
+          const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
+          if(isPdf){
             testImgWrap.innerHTML = `<iframe src="${fullUrl}" style="width:100%;height:70vh;border:none;border-radius:12px;display:block;"></iframe>`;
           } else {
             testImgWrap.innerHTML = `<img src="${fullUrl}" class="preview" alt="Test image" />`;

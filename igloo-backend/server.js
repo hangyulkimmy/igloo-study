@@ -41,6 +41,8 @@ async function uploadToCloudinary(buffer, originalname) {
         resource_type: isPdf ? "raw" : "image",
         type: "upload",
         access_mode: "public",
+        use_filename: true,
+        unique_filename: true,
       },
       (err, result) => err ? reject(err) : resolve(result)
     );
