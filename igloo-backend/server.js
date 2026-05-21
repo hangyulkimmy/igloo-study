@@ -39,7 +39,8 @@ async function uploadToCloudinary(buffer, originalname) {
       {
         folder: "igloo-study",
         resource_type: isPdf ? "raw" : "image",
-        format: isPdf ? "pdf" : undefined,
+        type: "upload",
+        access_mode: "public",
       },
       (err, result) => err ? reject(err) : resolve(result)
     );
