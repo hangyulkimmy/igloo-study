@@ -588,4 +588,7 @@ app.use((err, _req, res, _next) => {
 app.use((_req, res) => res.status(404).json({ error: "not_found" }));
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`API on ${port}`));
+app.listen(port, () => {
+  console.log(`API on ${port}`);
+  console.log(`Cloudinary configured: cloud=${!!process.env.CLOUDINARY_CLOUD_NAME} key=${!!process.env.CLOUDINARY_API_KEY} secret=${!!process.env.CLOUDINARY_API_SECRET}`);
+});
