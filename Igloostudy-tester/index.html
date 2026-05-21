@@ -303,7 +303,7 @@
 
   <script>
     // ===== CONFIG =====
-    const API_BASE = "https://igloo-study-hgw7.onrender.com";
+    const API_BASE = window.API_BASE || "https://igloo-study.onrender.com";
 
 
     const STORAGE_KEY = "igloo_last_submission_v1";
@@ -545,7 +545,7 @@
 
         if(meta.type === "image" && meta.image_url){
           imgBox.style.display = "block";
-          const fullUrl = API_BASE + meta.image_url;
+          const fullUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
           if(meta.image_url.toLowerCase().endsWith(".pdf")){
             testImgWrap.innerHTML = `<iframe src="${fullUrl}" style="width:100%;height:70vh;border:none;border-radius:12px;display:block;"></iframe>`;
           } else {
