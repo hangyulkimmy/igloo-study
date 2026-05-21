@@ -338,7 +338,6 @@
 
     const sheet = document.getElementById("sheet");
     const submitBtn = document.getElementById("submitBtn");
-    const resetAnswersBtn = document.getElementById("resetAnswersBtn");
 
     const mainMsg = document.getElementById("mainMsg");
     const resultLine = document.getElementById("resultLine");
@@ -715,7 +714,6 @@
 
     clearBtn.addEventListener("click", clearAll);
     submitBtn.addEventListener("click", submit);
-    resetAnswersBtn.addEventListener("click", resetAnswers);
 
     takeAnotherBtn.addEventListener("click", () => {
       // keep student info, go back to home, then they can start another random test
