@@ -617,6 +617,9 @@
         };
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
+        // Clear currentTest so beforeunload doesn't block the redirect
+        currentTest = null;
+
         // Redirect to "submitted page" (URL changes)
         setSubmittedUrl();
 
