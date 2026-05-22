@@ -608,7 +608,7 @@
           return;
         }
 
-        // Save details so the "submitted page" can render it
+        // Save details so the submitted page can render them
         const payload = {
           submission: data,
           test: { id: currentTest.id, title: currentTest.title, subject, level },
@@ -616,11 +616,13 @@
         };
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
-        // Clear currentTest so beforeunload doesn't block the redirect
+        // Clear test so beforeunload doesn't trigger
         currentTest = null;
+        answers = {};
 
-        // Redirect to "submitted page" (URL changes)
-        setSubmittedUrl();
+        // Show submitted panel directly (no page reload needed)
+        renderSubmittedPage();
+        showView("submitted");
 
       }catch(e){
         setMsg(mainMsg, "Submit failed: could not reach server.", "err");
