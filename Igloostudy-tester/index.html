@@ -323,7 +323,6 @@
 
     const startBtn = document.getElementById("startBtn");
     const clearBtn = document.getElementById("clearBtn");
-    const reloadBtn = document.getElementById("reloadBtn");
 
     const panelHome = document.getElementById("panelHome");
     const panelTest = document.getElementById("panelTest");
@@ -712,7 +711,6 @@
     [sName, sGrade, sEmail, sPhone].forEach(el => el.addEventListener("input", syncStudentGate));
 
     startBtn.addEventListener("click", loadRandomTest);
-    reloadBtn.addEventListener("click", loadRandomTest);
 
     clearBtn.addEventListener("click", clearAll);
     submitBtn.addEventListener("click", submit);
