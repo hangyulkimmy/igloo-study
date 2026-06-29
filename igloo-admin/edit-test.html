@@ -485,14 +485,16 @@
         fileInfoEl.textContent = "—";
         return;
       }
-  
+
       const apiBase = getApiBase();
-      const full = apiBase + imageUrl; // imageUrl begins with /uploads/...
+      const full = imageUrl.startsWith("http") ? imageUrl : apiBase + imageUrl;
       fileInfoEl.textContent = imageUrl;
-  
-      if (imageUrl.toLowerCase().endsWith(".pdf")) {
+
+      const isPdf = imageUrl.toLowerCase().endsWith(".pdf") || imageUrl.includes("/raw/upload/");
+      if (isPdf) {
+        const proxyUrl = `${apiBase}/files/pdf?url=${encodeURIComponent(full)}`;
         const frame = document.createElement("iframe");
-        frame.src = full;
+        frame.src = proxyUrl;
         frame.style.cssText = "width:100%;height:70vh;border:none;border-radius:14px;";
         imgWrapEl.appendChild(frame);
       } else {

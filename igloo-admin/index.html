@@ -818,13 +818,14 @@ const API_BASE = "https://igloo-study.onrender.com";
         html += `<div class="small">Test Type: ${escapeHtml(meta.type || "unknown")} • Questions: ${escapeHtml(String(n))} • Choices: ${escapeHtml(letters)}</div>`;
 
         if(meta.type === "image" && meta.image_url){
-          const fileUrl = API_BASE + meta.image_url;
-          const isPdf = meta.image_url.toLowerCase().endsWith(".pdf");
+          const fileUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
+          const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
+          const previewUrl = isPdf ? `${API_BASE}/files/pdf?url=${encodeURIComponent(fileUrl)}` : fileUrl;
           html += `<div class="qbox">
                     <div style="font-weight:900; margin-bottom:8px;">Test file</div>
                     ${isPdf
-                      ? `<iframe src="${fileUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
-                      : `<img src="${fileUrl}" alt="Test image" style="width:100%; border-radius:14px; border:1px solid var(--border);" />`}
+                      ? `<iframe src="${previewUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
+                      : `<img src="${previewUrl}" alt="Test image" style="width:100%; border-radius:14px; border:1px solid var(--border);" />`}
                   </div>`;
         }
 
@@ -1055,14 +1056,15 @@ const API_BASE = "https://igloo-study.onrender.com";
         let html = `<div class="small">Questions: <b>${n}</b> • Choices: <b>${escapeHtml(letters)}</b></div>`;
 
         if (meta.type === "image" && meta.image_url) {
-          const fileUrl = API_BASE + meta.image_url;
-          const isPdf = meta.image_url.toLowerCase().endsWith(".pdf");
+          const fileUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
+          const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
+          const previewUrl = isPdf ? `${API_BASE}/files/pdf?url=${encodeURIComponent(fileUrl)}` : fileUrl;
           html += `
             <div class="qbox">
               <div style="font-weight:900; margin-bottom:8px;">Test file</div>
               ${isPdf
-                ? `<iframe src="${fileUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
-                : `<img src="${fileUrl}" style="width:100%; border-radius:14px; border:1px solid rgba(15,23,42,0.12);" />`}
+                ? `<iframe src="${previewUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
+                : `<img src="${previewUrl}" style="width:100%; border-radius:14px; border:1px solid rgba(15,23,42,0.12);" />`}
             </div>
           `;
         }
