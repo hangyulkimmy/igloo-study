@@ -341,7 +341,7 @@
 
         <div class="full">
           <label>Answer key (letters only)</label>
-          <textarea id="answerKey" placeholder="Example: ABEDCABDCE"></textarea>
+          <textarea id="answerKey" placeholder="Example: ABCDE ABCD EABCD (spaces = page breaks)"></textarea>
           <div class="hint" id="keyHint"></div>
         </div>
 
@@ -459,16 +459,24 @@
     }
   
     function normalizeKey(raw) {
-      return String(raw || "").toUpperCase().replace(/\s+/g, "").trim();
+      return String(raw || "").trim().toUpperCase().split(/\s+/).filter(Boolean).join(" ");
     }
-  
-    function buildKeyString(answerMap, n, letters) {
+
+    function buildKeyString(answerMap, n, letters, pages) {
       const out = [];
       for (let i = 1; i <= n; i++) {
         const idx = answerMap?.["q" + i];
         out.push(typeof idx === "number" && idx >= 0 && idx < letters.length ? letters[idx] : "");
       }
-      return out.join("");
+      const flat = out.join("");
+      const groupLens = Array.isArray(pages) && pages.length ? pages : [n];
+      const groups = [];
+      let pos = 0;
+      for (const len of groupLens) {
+        groups.push(flat.slice(pos, pos + len));
+        pos += len;
+      }
+      return groups.join(" ");
     }
   
     function renderImagePreview(imageUrl) {
@@ -512,7 +520,7 @@
       const n = Number(numQuestionsEl.value || 0);
       const letters = lettersForChoices(choicesCountEl.value);
       keyHintEl.textContent =
-        `Expected: exactly ${n || "N"} letters using only ${letters}. (No spaces)`;
+        `Expected: a total of ${n || "N"} letters using only ${letters}. Use spaces to add page breaks for students.`;
     }
   
     // ============================
@@ -575,7 +583,7 @@
       numQuestionsEl.value = n || "";
       choicesCountEl.value = String(c === 4 ? 4 : 5);
   
-      answerKeyEl.value = buildKeyString(data.answer_key || {}, n || 0, letters);
+      answerKeyEl.value = buildKeyString(data.answer_key || {}, n || 0, letters, q.pages);
   
       renderImagePreview(q.image_url || null);
   
@@ -608,9 +616,10 @@
       const letters = lettersForChoices(c);
   
       const key = normalizeKey(answerKeyEl.value);
-      if (key.length !== n) return `Answer key must be exactly ${n} letters (currently ${key.length}).`;
+      const flat = key.replace(/\s+/g, "");
+      if (flat.length !== n) return `Answer key must total exactly ${n} letters across all pages (currently ${flat.length}).`;
   
-      for (const ch of key) {
+      for (const ch of flat) {
         if (!letters.includes(ch)) return `Answer key can only use letters: ${letters}`;
       }
       return null;

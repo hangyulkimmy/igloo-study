@@ -419,7 +419,9 @@
               <h2>Upload a test (image-based)</h2>
               <p>
                 Upload a <b>test image</b>, then paste the answer key as letters <b>A–E</b> (or A–D).<br/>
-                Example for 10 questions: <span class="mono">ABEDCABDCE</span>
+                Example for 10 questions on one page: <span class="mono">ABEDCABDCE</span><br/>
+                To split into pages (page breaks shown to students), separate groups with spaces — each group is one page.<br/>
+                Example: <span class="mono">ABCDE ABCD EABCD</span> = page 1 has 5 questions, page 2 has 4, page 3 has 5.
               </p>
             </div>
           </div>
@@ -471,9 +473,9 @@
 
               <div style="grid-column: 1 / -1;">
                 <label>Answer key (letters only)</label>
-                <textarea id="uAnswerKey" placeholder="Paste something like: ABEDCABDCE"></textarea>
+                <textarea id="uAnswerKey" placeholder="Paste something like: ABCDE ABCD EABCD"></textarea>
                 <div class="small">
-                  Must be exactly the same length as “Number of questions”.
+                  Letters must total the same as "Number of questions". Separate with spaces to create page breaks — each space-separated group becomes one page for students.
                 </div>
               </div>
             </div>
@@ -882,7 +884,10 @@ const API_BASE = "https://igloo-study.onrender.com";
       const numQ = parseInt(uNumQuestions.value, 10);
       const choicesCount = parseInt(uChoices.value, 10);
       const file = uImage.files?.[0];
-      const answerKey = (uAnswerKey.value || "").trim().toUpperCase().replace(/\s+/g, "");
+      const answerKeyRaw = (uAnswerKey.value || "").trim().toUpperCase();
+      const answerKeyGroups = answerKeyRaw.split(/\s+/).filter(Boolean);
+      const answerKey = answerKeyGroups.join(" ");
+      const answerKeyFlat = answerKeyGroups.join("");
 
       if(!Number.isFinite(numQ) || numQ < 1 || numQ > 200){
         setMsg(uploadMsg, "Number of questions must be 1–200.", "err");
@@ -894,11 +899,11 @@ const API_BASE = "https://igloo-study.onrender.com";
       }
 
       const allowedLetters = "ABCDE".slice(0, choicesCount);
-      if(answerKey.length !== numQ){
-        setMsg(uploadMsg, `Answer key must be exactly length ${numQ}.`, "err");
+      if(answerKeyFlat.length !== numQ){
+        setMsg(uploadMsg, `Answer key must total exactly ${numQ} letters across all pages.`, "err");
         return;
       }
-      for(const ch of answerKey){
+      for(const ch of answerKeyFlat){
         if(!allowedLetters.includes(ch)){
           setMsg(uploadMsg, `Answer key has invalid letter "${ch}". Allowed: ${allowedLetters}`, "err");
           return;
