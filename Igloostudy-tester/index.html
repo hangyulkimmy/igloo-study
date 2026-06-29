@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <style>
     :root{
@@ -265,7 +266,7 @@
                 <div class="small" id="metaLine">—</div>
               </div>
               <div class="actions" style="margin-top:0;">
-                <button class="btn btnGhost" id="backPageBtn" type="button">Back</button>
+                <button class="btn btnPrimary" id="backPageBtn" type="button">Back</button>
                 <button class="btn btnPrimary" id="submitBtn" type="button">Next</button>
               </div>
             </div>
@@ -304,6 +305,7 @@
   <script>
     // ===== CONFIG =====
     const API_BASE = window.API_BASE || "https://igloo-study.onrender.com";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 
     const STORAGE_KEY = "igloo_last_submission_v1";
@@ -356,6 +358,7 @@
     let timerSecondsLeft = 0;
     let pageBoundaries = []; // [{start, end}] 1-indexed question numbers per page
     let currentPage = 0;
+    let pdfDoc = null; // pdf.js document, loaded once per test
 
     // ===== TIMER =====
     function startTimer(minutes) {
@@ -464,16 +467,47 @@
       return `${API_BASE}/files/pdf?url=${encodeURIComponent(rawUrl)}`;
     }
 
-    function updateMediaForPage(){
+    function isPdfUrl(raw){
+      return raw.toLowerCase().endsWith(".pdf") || raw.includes("/raw/upload/");
+    }
+
+    async function loadPdfIfNeeded(rawUrl){
+      pdfDoc = null;
+      try{
+        const loadingTask = pdfjsLib.getDocument(pdfProxyUrl(rawUrl));
+        pdfDoc = await loadingTask.promise;
+      }catch(e){
+        console.error("PDF load failed:", e);
+      }
+    }
+
+    async function renderPdfPage(pageNum){
+      if(!pdfDoc){
+        testImgWrap.innerHTML = `<div class="small">Could not load PDF.</div>`;
+        return;
+      }
+      const safePageNum = Math.max(1, Math.min(pageNum, pdfDoc.numPages));
+      const page = await pdfDoc.getPage(safePageNum);
+      const viewport = page.getViewport({ scale: 1.5 });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.cssText = "width:100%;border-radius:12px;border:1px solid var(--border);display:block;";
+
+      testImgWrap.innerHTML = "";
+      testImgWrap.appendChild(canvas);
+
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    }
+
+    async function updateMediaForPage(){
       const meta = currentTest?.questions || {};
       if(meta.type === "image" && meta.image_url){
         imgBox.style.display = "block";
         const raw = meta.image_url;
-        const isPdf = raw.toLowerCase().endsWith(".pdf") || raw.includes("/raw/upload/");
-        if(isPdf){
-          const pageNum = currentPage + 1;
-          const src = `${pdfProxyUrl(raw)}#page=${pageNum}`;
-          testImgWrap.innerHTML = `<iframe src="${src}" style="width:100%;height:70vh;border:none;border-radius:12px;display:block;"></iframe>`;
+        if(isPdfUrl(raw)){
+          await renderPdfPage(currentPage + 1);
         } else {
           const fullUrl = raw.startsWith("http") ? raw : API_BASE + raw;
           testImgWrap.innerHTML = `<img src="${fullUrl}" class="preview" alt="Test image" />`;
@@ -495,7 +529,7 @@
       metaLine.textContent = `Questions ${b.start}–${b.end} of ${numQuestions} • Choices: ${letters}${pageInfo}`;
     }
 
-    function renderCurrentPage(){
+    async function renderCurrentPage(){
       sheet.innerHTML = "";
       const { start, end } = pageBoundaries[currentPage];
 
@@ -531,24 +565,24 @@
         sheet.appendChild(row);
       }
 
-      updateMediaForPage();
+      await updateMediaForPage();
       updateNavButtons();
     }
 
-    function goNextOrSubmit(){
+    async function goNextOrSubmit(){
       const isLast = currentPage === pageBoundaries.length - 1;
       if(!isLast){
         currentPage++;
-        renderCurrentPage();
+        await renderCurrentPage();
         return;
       }
       submit();
     }
 
-    function goBackPage(){
+    async function goBackPage(){
       if(currentPage > 0){
         currentPage--;
-        renderCurrentPage();
+        await renderCurrentPage();
       }
     }
 
@@ -613,8 +647,14 @@
         pageBoundaries = computePageBoundaries(meta.pages, numQuestions);
         currentPage = 0;
         answers = {};
+        pdfDoc = null;
 
-        renderCurrentPage();
+        if(meta.type === "image" && meta.image_url && isPdfUrl(meta.image_url)){
+          setMsg(leftMsg, "Loading PDF…", "");
+          await loadPdfIfNeeded(meta.image_url);
+        }
+
+        await renderCurrentPage();
         showView("test");
         setMsg(leftMsg, "Test started ✅", "ok");
         setMsg(mainMsg, "Select your answers, then press Next.", "");
@@ -698,6 +738,7 @@
       answers = {};
       pageBoundaries = [];
       currentPage = 0;
+      pdfDoc = null;
       sheet.innerHTML = "";
       imgBox.style.display = "none";
       testImgWrap.innerHTML = "";
