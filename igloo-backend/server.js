@@ -66,6 +66,27 @@ async function deleteFromCloudinary(url) {
   }
 }
 
+// ✅ Parse an answer key with optional page breaks.
+// Each whitespace-separated group becomes one page; the group's length is
+// the number of questions on that page. Returns null if invalid.
+function parseAnswerKeyWithPages(answerKeyRaw, n, letters) {
+  const groups = (answerKeyRaw || "").trim().toUpperCase().split(/\s+/).filter(Boolean);
+  if (!groups.length) return null;
+
+  const keyStr = groups.join("");
+  if (keyStr.length !== n) return null;
+
+  const map = {};
+  for (let i = 0; i < n; i++) {
+    const idx = letters.indexOf(keyStr[i]);
+    if (idx === -1) return null;
+    map[`q${i + 1}`] = idx;
+  }
+
+  const pages = groups.map(g => g.length);
+  return { map, pages };
+}
+
 // ✅ DB pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -97,6 +118,35 @@ const upload = multer({
 // Health
 // ---------------------
 app.get("/health", (_, res) => res.json({ ok: true }));
+
+// ---------------------
+// PDF proxy: serves a Cloudinary raw PDF inline (not as a download) so the
+// browser's native PDF viewer can render it in an iframe and jump to pages
+// via #page=N. Restricted to res.cloudinary.com to avoid being an open proxy.
+// ---------------------
+app.get("/files/pdf", async (req, res) => {
+  try {
+    const url = String(req.query.url || "");
+    let parsed;
+    try { parsed = new URL(url); } catch { return res.status(400).json({ error: "invalid url" }); }
+    if (parsed.hostname !== "res.cloudinary.com") {
+      return res.status(400).json({ error: "url must be a res.cloudinary.com resource" });
+    }
+
+    const upstream = await fetch(url);
+    if (!upstream.ok) return res.status(upstream.status).json({ error: "upstream fetch failed" });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
+
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.send(buf);
+  } catch (e) {
+    console.error("PDF PROXY ERROR:", e);
+    res.status(500).json({ error: "pdf proxy failed", detail: String(e?.message || e) });
+  }
+});
 
 // ---------------------
 // Helper: delete file from Cloudinary
@@ -286,17 +336,11 @@ app.post("/admin/tests/upload", requireAdmin, upload.single("image"), async (req
     if (![4, 5].includes(c)) return res.status(400).json({ error: "choices_count must be 4 or 5" });
     const letters = "ABCDE".slice(0, c);
 
-    const keyStr = (answer_key || "").trim().toUpperCase().replace(/\s+/g, "");
-    if (keyStr.length !== n) {
-      return res.status(400).json({ error: `answer_key must be length ${n}` });
+    const parsed = parseAnswerKeyWithPages(answer_key, n, letters);
+    if (!parsed) {
+      return res.status(400).json({ error: `answer_key must total ${n} letters from ${letters}` });
     }
-
-    const map = {};
-    for (let i = 0; i < n; i++) {
-      const idx = letters.indexOf(keyStr[i]);
-      if (idx === -1) return res.status(400).json({ error: `answer_key must use only ${letters}` });
-      map[`q${i + 1}`] = idx;
-    }
+    const { map, pages } = parsed;
 
     const cloudResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
     const imageUrl = cloudResult.secure_url;
@@ -306,6 +350,7 @@ app.post("/admin/tests/upload", requireAdmin, upload.single("image"), async (req
       num_questions: n,
       choices_count: c,
       choices: letters.split(""),
+      pages,
     };
 
     const { rows } = await pool.query(
@@ -364,17 +409,12 @@ app.put("/admin/tests/:id", requireAdmin, upload.single("image"), async (req, re
     }
 
     let newAnswerMap = existing.answer_key || {};
+    let newPages = q.pages || [newN];
     if (typeof answer_key !== "undefined") {
-      const keyStr = String(answer_key || "").trim().toUpperCase().replace(/\s+/g, "");
-      if (keyStr.length !== newN) return res.status(400).json({ error: `answer_key must be length ${newN}` });
-
-      const map = {};
-      for (let i = 0; i < newN; i++) {
-        const idx = letters.indexOf(keyStr[i]);
-        if (idx === -1) return res.status(400).json({ error: `answer_key must use only ${letters}` });
-        map[`q${i + 1}`] = idx;
-      }
-      newAnswerMap = map;
+      const parsed = parseAnswerKeyWithPages(answer_key, newN, letters);
+      if (!parsed) return res.status(400).json({ error: `answer_key must total ${newN} letters from ${letters}` });
+      newAnswerMap = parsed.map;
+      newPages = parsed.pages;
     }
 
     let imageUrl = q.image_url || null;
@@ -397,6 +437,7 @@ app.put("/admin/tests/:id", requireAdmin, upload.single("image"), async (req, re
       choices_count: newChoicesCount,
       choices: letters.split(""),
       image_url: imageUrl,
+      pages: newPages,
     };
 
     const { rows } = await pool.query(
