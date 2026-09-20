@@ -2,7 +2,7 @@
 
 Test-taking platform for Igloo Study, a tutoring service I run. Students take placement/level tests in the browser; I upload, edit, and review tests from an admin dashboard.
 
-**[▶ Try the tester](https://hangyulkimmy.github.io/igloo-study/Igloostudy-tester/)** — it talks to the live API, so go easy.
+**[Try the tester](https://hangyulkimmy.github.io/igloo-study/Igloostudy-tester/)**, it talks to the live API, so go easy.
 
 This is a real product with real users, not a demo. The classroom side, [Igloo Classroom](https://igloo-assistant.up.railway.app), lives in a separate private repo (code on request).
 
@@ -13,8 +13,8 @@ This is a real product with real users, not a demo. The classroom side, [Igloo C
 | Folder | What it is |
 |---|---|
 | `igloo-backend/` | Express API + PostgreSQL. Tests and submissions are stored in Postgres; test PDFs/images go to Cloudinary. Admin routes are protected with an `x-admin-key` header. |
-| `igloo-admin/` | Admin dashboard — log in, upload a test (PDF or image), edit questions/answers, review student submissions. |
-| `Igloostudy-tester/` | The student-facing tester — pick a test, answer, submit. |
+| `igloo-admin/` | Admin dashboard, log in, upload a test (PDF or image), edit questions/answers, review student submissions. |
+| `Igloostudy-tester/` | The student-facing tester, pick a test, answer, submit. |
 
 ### API surface
 
