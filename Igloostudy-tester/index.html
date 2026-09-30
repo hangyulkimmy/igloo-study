@@ -121,6 +121,19 @@
     img.preview{ width:100%; border-radius:14px; border:1px solid var(--border); display:block; }
 
     .answerGrid{ display:flex; flex-direction:column; gap: 10px; margin-top: 10px; }
+    .writeBox{ border:1px solid var(--border); border-radius:14px; padding:14px; margin-top:10px; }
+    .writePrompt{
+      font-family: "Libre Baskerville", Georgia, serif; font-size: 15px; line-height:1.55;
+      white-space: pre-wrap; margin-bottom: 12px; color: var(--ink);
+    }
+    .writeArea{
+      width:100%; min-height: 320px; resize: vertical; padding: 12px 14px;
+      font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.6;
+      color: var(--ink); background:#fff;
+      border:2px solid var(--border); border-radius:12px;
+    }
+    .writeArea:focus{ outline:none; border-color: var(--navy); }
+    .writeFoot{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px; }
     .row{
       display:flex; gap: 10px; align-items:center; flex-wrap: wrap;
       padding: 10px; border: 1px solid var(--border);
@@ -263,7 +276,7 @@
           <div class="qbox">
             <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap;">
               <div>
-                <div style="font-weight:900;">Answer Sheet</div>
+                <div style="font-weight:900;" id="sheetTitle">Answer Sheet</div>
                 <div class="small" id="metaLine">—</div>
               </div>
               <div class="actions" style="margin-top:0;">
@@ -344,6 +357,7 @@
     const backPageBtn = document.getElementById("backPageBtn");
 
     const mainMsg = document.getElementById("mainMsg");
+    const sheetTitle = document.getElementById("sheetTitle");
     const resultLine = document.getElementById("resultLine");
 
     const submittedSummary = document.getElementById("submittedSummary");
@@ -357,7 +371,11 @@
     let answers = {};
     let timerInterval = null;
     let timerSecondsLeft = 0;
-    let pageBoundaries = []; // [{start, end}] 1-indexed question numbers per page
+    let writing = {};        // { w1: "essay text", ... } free-response answers
+    // The page flow: every multiple-choice page, then one page per writing prompt.
+    // [{kind:"mc", start, end} | {kind:"writing", id, prompt, ordinal}]
+    let flow = [];
+    let mcPageCount = 0;
     let currentPage = 0;
     let pdfDoc = null; // pdf.js document, loaded once per test
 
@@ -464,6 +482,31 @@
       return out;
     }
 
+    // Multiple-choice pages first, then one page per writing prompt.
+    function buildFlow(meta, n){
+      const mc = computePageBoundaries(meta?.pages, n).map(b => ({ kind:"mc", ...b }));
+      mcPageCount = mc.length;
+      const prompts = Array.isArray(meta?.writing_prompts) ? meta.writing_prompts : [];
+      const write = prompts
+        .filter(pr => pr && String(pr.prompt || "").trim())
+        .map((pr, i) => ({
+          kind: "writing",
+          id: pr.id || `w${i+1}`,
+          prompt: String(pr.prompt),
+          ordinal: i + 1,
+        }));
+      return [...mc, ...write];
+    }
+
+    function writingPageCount(){
+      return flow.filter(p => p.kind === "writing").length;
+    }
+
+    function countWords(text){
+      const t = (text || "").trim();
+      return t ? t.split(/\s+/).length : 0;
+    }
+
     function pdfProxyUrl(rawUrl){
       return `${API_BASE}/files/pdf?url=${encodeURIComponent(rawUrl)}`;
     }
@@ -508,6 +551,9 @@
         imgBox.style.display = "block";
         const raw = meta.image_url;
         if(isPdfUrl(raw)){
+          // On a writing page, walk into any PDF pages past the answer-sheet pages
+          // (in case the prompt/passage is printed there). renderPdfPage clamps to
+          // the last page, so a PDF with no extra pages just keeps showing it.
           await renderPdfPage(currentPage + 1);
         } else {
           const fullUrl = raw.startsWith("http") ? raw : API_BASE + raw;
@@ -521,18 +567,80 @@
 
     function updateNavButtons(){
       const isFirst = currentPage === 0;
-      const isLast = currentPage === pageBoundaries.length - 1;
+      const isLast = currentPage === flow.length - 1;
       backPageBtn.disabled = isFirst;
       submitBtn.textContent = isLast ? "Submit" : "Next";
 
-      const b = pageBoundaries[currentPage];
-      const pageInfo = pageBoundaries.length > 1 ? ` • Page ${currentPage + 1} of ${pageBoundaries.length}` : "";
-      metaLine.textContent = `Questions ${b.start}–${b.end} of ${numQuestions} • Choices: ${letters}${pageInfo}`;
+      const page = flow[currentPage];
+      const pageInfo = flow.length > 1 ? ` • Page ${currentPage + 1} of ${flow.length}` : "";
+
+      if(page.kind === "writing"){
+        const total = writingPageCount();
+        const which = total > 1 ? ` ${page.ordinal} of ${total}` : "";
+        metaLine.textContent = `Writing${which} • type your answer below${pageInfo}`;
+        if(sheetTitle) sheetTitle.textContent = "Writing";
+        setMsg(mainMsg, isLast ? "Write your answer, then press Submit." : "Write your answer, then press Next.", "");
+      } else {
+        metaLine.textContent = `Questions ${page.start}–${page.end} of ${numQuestions} • Choices: ${letters}${pageInfo}`;
+        if(sheetTitle) sheetTitle.textContent = "Answer Sheet";
+        setMsg(mainMsg, "Select your answers, then press Next.", "");
+      }
+    }
+
+    function renderWritingPage(page){
+      const box = document.createElement("div");
+      box.className = "writeBox";
+
+      const promptEl = document.createElement("div");
+      promptEl.className = "writePrompt";
+      promptEl.textContent = page.prompt;
+
+      const ta = document.createElement("textarea");
+      ta.className = "writeArea";
+      ta.placeholder = "Write your answer here…";
+      ta.spellcheck = true;
+      ta.value = writing[page.id] || "";
+
+      const foot = document.createElement("div");
+      foot.className = "writeFoot";
+      const count = document.createElement("div");
+      count.className = "small";
+      const hint = document.createElement("div");
+      hint.className = "small";
+      hint.textContent = "Saved as you type";
+
+      const refreshCount = () => {
+        const words = countWords(ta.value);
+        count.textContent = `${words} word${words === 1 ? "" : "s"}`;
+      };
+      refreshCount();
+
+      ta.addEventListener("input", () => {
+        writing[page.id] = ta.value;
+        refreshCount();
+      });
+
+      foot.appendChild(count);
+      foot.appendChild(hint);
+      box.appendChild(promptEl);
+      box.appendChild(ta);
+      box.appendChild(foot);
+      sheet.appendChild(box);
+      ta.focus();
     }
 
     async function renderCurrentPage(){
       sheet.innerHTML = "";
-      const { start, end } = pageBoundaries[currentPage];
+      const page = flow[currentPage];
+
+      if(page.kind === "writing"){
+        renderWritingPage(page);
+        await updateMediaForPage();
+        updateNavButtons();
+        return;
+      }
+
+      const { start, end } = page;
 
       for(let i=start; i<=end; i++){
         const row = document.createElement("div");
@@ -571,13 +679,19 @@
     }
 
     async function goNextOrSubmit(){
-      const isLast = currentPage === pageBoundaries.length - 1;
+      const isLast = currentPage === flow.length - 1;
       if(!isLast){
         currentPage++;
         await renderCurrentPage();
         return;
       }
-      if(!confirm("Are you sure you want to submit?")) return;
+
+      const blanks = flow.filter(p => p.kind === "writing" && !countWords(writing[p.id]));
+      if(blanks.length){
+        const which = blanks.length === 1 ? "the writing section" : `${blanks.length} writing sections`;
+        if(!confirm(`You haven't written anything for ${which}. Submit anyway?`)) return;
+      } else if(!confirm("Are you sure you want to submit?")) return;
+
       submit();
     }
 
@@ -646,9 +760,10 @@
            <span class="pill">${escapeHtml(currentTest.level || level)}</span>
            <span class="pill">ID: ${escapeHtml(currentTest.id || "")}</span>`;
 
-        pageBoundaries = computePageBoundaries(meta.pages, numQuestions);
+        flow = buildFlow(meta, numQuestions);
         currentPage = 0;
         answers = {};
+        writing = {};
         pdfDoc = null;
 
         if(meta.type === "image" && meta.image_url && isPdfUrl(meta.image_url)){
@@ -697,7 +812,8 @@
             phone: info.phone,
             subject,
             level,
-            answers
+            answers,
+            writing
           })
         });
 
@@ -718,6 +834,7 @@
         // Clear test so beforeunload doesn't trigger
         currentTest = null;
         answers = {};
+        writing = {};
 
         // Show submitted panel directly (no page reload needed)
         renderSubmittedPage();
@@ -738,7 +855,8 @@
       currentTest = null;
       numQuestions = 0;
       answers = {};
-      pageBoundaries = [];
+      writing = {};
+      flow = [];
       currentPage = 0;
       pdfDoc = null;
       sheet.innerHTML = "";

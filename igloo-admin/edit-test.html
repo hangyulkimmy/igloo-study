@@ -346,6 +346,14 @@
         </div>
 
         <div class="full">
+          <label>Writing prompts (optional)</label>
+          <textarea id="writingPrompts" placeholder="Leave blank for a multiple-choice-only test."></textarea>
+          <div class="hint">
+            Each prompt becomes an extra page with a typing box after the answer sheet. Put <b>---</b> on its own line between prompts (max 5). Clearing this box removes the writing section. Writing is never auto-graded — the % score stays multiple-choice only.
+          </div>
+        </div>
+
+        <div class="full">
           <label>Current test file (image)</label>
           <div class="previewBox">
             <div class="hint" id="fileInfo">—</div>
@@ -412,6 +420,7 @@
     const numQuestionsEl = el("numQuestions");
     const choicesCountEl = el("choicesCount");
     const answerKeyEl = el("answerKey");
+    const writingPromptsEl = el("writingPrompts");
     const keyHintEl = el("keyHint");
   
     const fileInfoEl = el("fileInfo");
@@ -586,6 +595,10 @@
       choicesCountEl.value = String(c === 4 ? 4 : 5);
   
       answerKeyEl.value = buildKeyString(data.answer_key || {}, n || 0, letters, q.pages);
+      writingPromptsEl.value = (Array.isArray(q.writing_prompts) ? q.writing_prompts : [])
+        .map(pr => String(pr?.prompt || "").trim())
+        .filter(Boolean)
+        .join("\n---\n");
   
       renderImagePreview(q.image_url || null);
   
@@ -600,6 +613,7 @@
         numQuestions: numQuestionsEl.value,
         choicesCount: choicesCountEl.value,
         answerKey: answerKeyEl.value,
+        writingPrompts: writingPromptsEl.value,
         image_url: q.image_url || null,
       };
   
@@ -657,6 +671,7 @@
         fd.append("num_questions", String(n));
         fd.append("choices_count", String(c));
         fd.append("answer_key", key);
+        fd.append("writing_prompts", writingPromptsEl.value.trim());
   
         if (newImageEl.files && newImageEl.files[0]) {
           fd.append("image", newImageEl.files[0]);
@@ -694,6 +709,7 @@
       numQuestionsEl.value = original.numQuestions;
       choicesCountEl.value = original.choicesCount;
       answerKeyEl.value = original.answerKey;
+      writingPromptsEl.value = original.writingPrompts || "";
       newImageEl.value = "";
       renderImagePreview(original.image_url);
       updateKeyHint();

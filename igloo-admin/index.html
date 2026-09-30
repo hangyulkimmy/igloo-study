@@ -478,6 +478,14 @@
                   Letters must total the same as "Number of questions". Separate with spaces to create page breaks — each space-separated group becomes one page for students.
                 </div>
               </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label>Writing prompts (optional)</label>
+                <textarea id="uWriting" placeholder="e.g. Describe a place that matters to you and explain why. Write at least 150 words."></textarea>
+                <div class="small">
+                  Leave blank for a multiple-choice-only test. Each prompt becomes an extra page with a typing box after the answer sheet. For more than one prompt, put <b>---</b> on its own line between them (max 5). Writing is <b>not auto-graded</b> — it's saved for you to read in the submission view, and the % score stays multiple-choice only.
+                </div>
+              </div>
             </div>
 
             <div class="actions">
@@ -610,6 +618,7 @@ const API_BASE = "https://igloo-study.onrender.com";
     const uChoices = document.getElementById("uChoices");
     const uImage = document.getElementById("uImage");
     const uAnswerKey = document.getElementById("uAnswerKey");
+    const uWriting = document.getElementById("uWriting");
     const uploadBtn = document.getElementById("uploadBtn");
     const fillExampleBtn = document.getElementById("fillExampleBtn");
     const uploadMsg = document.getElementById("uploadMsg");
@@ -850,6 +859,31 @@ const API_BASE = "https://igloo-study.onrender.com";
           `;
         }
 
+        // Writing section (free response) — stored, never auto-graded.
+        const prompts = Array.isArray(meta.writing_prompts) ? meta.writing_prompts : [];
+        const written = (answers.writing && typeof answers.writing === "object") ? answers.writing : {};
+        if(prompts.length){
+          html += `<div class="qbox" style="border-width:2px;">
+                    <div style="font-weight:900; margin-bottom:6px;">Writing section</div>
+                    <div class="small">Not included in the ${escapeHtml(String(s.score ?? ""))}% score — read and judge it yourself.</div>
+                  </div>`;
+          prompts.forEach((pr, i) => {
+            const id = pr?.id || `w${i+1}`;
+            const text = typeof written[id] === "string" ? written[id] : "";
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            html += `
+              <div class="qbox">
+                <div style="font-weight:900;">Writing ${i + 1}</div>
+                <div class="small" style="white-space:pre-wrap; margin:6px 0 10px; font-style:italic;">${escapeHtml(String(pr?.prompt || "(no prompt)"))}</div>
+                ${text.trim()
+                  ? `<div style="white-space:pre-wrap; line-height:1.6; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px;">${escapeHtml(text)}</div>
+                     <div class="small" style="margin-top:6px;">${words} word${words === 1 ? "" : "s"}</div>`
+                  : `<div class="small" style="font-weight:900; color:#b00020;">Left blank</div>`}
+              </div>
+            `;
+          });
+        }
+
         modalBody.innerHTML = html;
 
       }catch(e){
@@ -918,6 +952,7 @@ const API_BASE = "https://igloo-study.onrender.com";
       fd.append("num_questions", String(numQ));
       fd.append("choices_count", String(choicesCount));
       fd.append("answer_key", answerKey);
+      fd.append("writing_prompts", (uWriting?.value || "").trim());
       fd.append("image", file);
 
       uploadBtn.disabled = true;
@@ -938,6 +973,7 @@ const API_BASE = "https://igloo-study.onrender.com";
 
         setMsg(uploadMsg, `Uploaded ✅ ${data.subject}/${data.level} — ${data.title}`, "ok");
         uImage.value = "";
+        if(uWriting) uWriting.value = "";
       }catch(e){
         setMsg(uploadMsg, "Upload failed: could not reach server.", "err");
       }finally{

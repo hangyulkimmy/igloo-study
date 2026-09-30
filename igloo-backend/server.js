@@ -87,6 +87,61 @@ function parseAnswerKeyWithPages(answerKeyRaw, n, letters) {
   return { map, pages };
 }
 
+// ✅ Writing prompts (optional free-response section appended after the MC pages).
+// Accepts either a JSON array (of strings or {prompt} objects) or plain text where
+// a line containing only "---" separates one prompt from the next.
+const MAX_WRITING_PROMPTS = 5;
+const MAX_PROMPT_CHARS = 2000;
+const MAX_WRITING_ANSWER_CHARS = 20000;
+
+function parseWritingPrompts(raw) {
+  if (raw === undefined || raw === null) return null; // "not provided" — leave as-is
+  let list = [];
+
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === "string") {
+    // Browsers submit textarea newlines as CRLF; normalize so stored prompts
+    // don't carry stray \r into the tester's pre-wrap display.
+    const trimmed = raw.replace(/\r\n?/g, "\n").trim();
+    if (!trimmed) return []; // explicitly cleared
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        list = Array.isArray(parsed) ? parsed : [trimmed];
+      } catch {
+        list = trimmed.split(/^\s*---\s*$/m);
+      }
+    } else {
+      list = trimmed.split(/^\s*---\s*$/m);
+    }
+  } else {
+    return [];
+  }
+
+  const out = [];
+  for (const item of list) {
+    const text = String(typeof item === "object" && item ? item.prompt ?? "" : item).trim();
+    if (!text) continue;
+    out.push({ id: `w${out.length + 1}`, prompt: text.slice(0, MAX_PROMPT_CHARS) });
+    if (out.length >= MAX_WRITING_PROMPTS) break;
+  }
+  return out;
+}
+
+// Keep only answers whose key matches a real prompt id on this test, as capped strings.
+function sanitizeWritingAnswers(raw, prompts) {
+  const ids = new Set((prompts || []).map(p => p.id));
+  if (!ids.size || !raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [id, val] of Object.entries(raw)) {
+    if (!ids.has(id)) continue;
+    const text = typeof val === "string" ? val : val == null ? "" : String(val);
+    if (text.trim()) out[id] = text.slice(0, MAX_WRITING_ANSWER_CHARS);
+  }
+  return out;
+}
+
 // ✅ DB pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -322,7 +377,7 @@ app.get("/api/tests", requireAdmin, async (req, res) => {
 // ---------------------
 app.post("/admin/tests/upload", requireAdmin, upload.single("image"), async (req, res) => {
   try {
-    const { subject, level, title, num_questions, choices_count, answer_key } = req.body;
+    const { subject, level, title, num_questions, choices_count, answer_key, writing_prompts } = req.body;
 
     if (!req.file) return res.status(400).json({ error: "image is required" });
     if (!subject || !level) return res.status(400).json({ error: "subject and level are required" });
@@ -351,6 +406,7 @@ app.post("/admin/tests/upload", requireAdmin, upload.single("image"), async (req
       choices_count: c,
       choices: letters.split(""),
       pages,
+      writing_prompts: parseWritingPrompts(writing_prompts) || [],
     };
 
     const { rows } = await pool.query(
@@ -380,7 +436,7 @@ app.put("/admin/tests/:id", requireAdmin, upload.single("image"), async (req, re
   try {
     const { id } = req.params;
 
-    const { title, subject, level, num_questions, choices_count, answer_key, remove_image } = req.body;
+    const { title, subject, level, num_questions, choices_count, answer_key, remove_image, writing_prompts } = req.body;
 
     const { rows: existingRows } = await pool.query(
       `SELECT id, subject, level, title, questions, answer_key
@@ -431,8 +487,12 @@ app.put("/admin/tests/:id", requireAdmin, upload.single("image"), async (req, re
       imageUrl = cloudResult.secure_url;
     }
 
+    // undefined = field not sent, keep what's stored; "" = cleared by the admin
+    const parsedPrompts = parseWritingPrompts(writing_prompts);
+
     const updatedQuestions = {
       ...q,
+      writing_prompts: parsedPrompts ?? (q.writing_prompts || []),
       num_questions: newN,
       choices_count: newChoicesCount,
       choices: letters.split(""),
@@ -571,14 +631,14 @@ app.get("/tests", async (req, res) => {
 // ---------------------
 app.post("/submissions", async (req, res) => {
   try {
-    const { test_id, name, grade, email, phone, subject, level, answers } = req.body;
+    const { test_id, name, grade, email, phone, subject, level, answers, writing } = req.body;
 
     if (!test_id || !name || !grade || !email || !phone) {
       return res.status(400).json({ error: "missing required fields" });
     }
 
     const { rows: testRows } = await pool.query(
-      `SELECT answer_key FROM tests WHERE id=$1`,
+      `SELECT answer_key, questions FROM tests WHERE id=$1`,
       [test_id]
     );
     if (!testRows.length) return res.status(404).json({ error: "test not found" });
@@ -594,6 +654,14 @@ app.post("/submissions", async (req, res) => {
 
     const score = Math.round((correct / Math.max(total, 1)) * 100);
 
+    // Writing answers are stored alongside the MC ones but are NOT graded — the
+    // loop above only walks answer_key, so the score stays purely multiple-choice.
+    const prompts = (testRows[0].questions || {}).writing_prompts || [];
+    const writingAnswers = sanitizeWritingAnswers(writing, prompts);
+    const storedAnswers = { ...(answers && typeof answers === "object" ? answers : {}) };
+    delete storedAnswers.writing;
+    if (Object.keys(writingAnswers).length) storedAnswers.writing = writingAnswers;
+
     const { rows } = await pool.query(
       `INSERT INTO submissions(test_id, name, grade, email, phone, subject, level, answers, score)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
@@ -606,7 +674,7 @@ app.post("/submissions", async (req, res) => {
         phone,
         subject || "",
         level || "",
-        JSON.stringify(answers || {}),
+        JSON.stringify(storedAnswers),
         score,
       ]
     );
