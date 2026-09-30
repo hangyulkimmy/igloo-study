@@ -545,30 +545,54 @@
       await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
     }
 
+    function hideMedia(){
+      imgBox.style.display = "none";
+      testImgWrap.innerHTML = "";
+    }
+
     async function updateMediaForPage(){
       const meta = currentTest?.questions || {};
-      if(meta.type === "image" && meta.image_url){
-        imgBox.style.display = "block";
-        const raw = meta.image_url;
-        if(isPdfUrl(raw)){
-          // On a writing page, walk into any PDF pages past the answer-sheet pages
-          // (in case the prompt/passage is printed there). renderPdfPage clamps to
-          // the last page, so a PDF with no extra pages just keeps showing it.
-          await renderPdfPage(currentPage + 1);
-        } else {
-          const fullUrl = raw.startsWith("http") ? raw : API_BASE + raw;
-          testImgWrap.innerHTML = `<img src="${fullUrl}" class="preview" alt="Test image" />`;
+      const page = flow[currentPage];
+      if(!(meta.type === "image" && meta.image_url)) return hideMedia();
+
+      const raw = meta.image_url;
+      const isWriting = page.kind === "writing";
+
+      if(isPdfUrl(raw)){
+        if(isWriting){
+          // Only show the document on a writing page if it has pages BEYOND the
+          // answer-sheet pages (i.e. a real prompt/passage page). Otherwise the
+          // student would be staring at the last multiple-choice page while they
+          // write, which reads as if the writing belongs to that section.
+          const extra = pdfDoc ? pdfDoc.numPages - mcPageCount : 0;
+          if(extra <= 0) return hideMedia();
+          imgBox.style.display = "block";
+          await renderPdfPage(mcPageCount + Math.min(page.ordinal, extra));
+          return;
         }
-      } else {
-        imgBox.style.display = "none";
-        testImgWrap.innerHTML = "";
+        imgBox.style.display = "block";
+        await renderPdfPage(currentPage + 1);
+        return;
       }
+
+      // A single static image is the question sheet, so it has no place on a
+      // writing page.
+      if(isWriting) return hideMedia();
+      imgBox.style.display = "block";
+      const fullUrl = raw.startsWith("http") ? raw : API_BASE + raw;
+      testImgWrap.innerHTML = `<img src="${fullUrl}" class="preview" alt="Test image" />`;
+    }
+
+    // The writing section is one-way: once a student crosses into it they can't
+    // go back and change multiple-choice answers.
+    function isFirstWritingPage(i){
+      return flow[i]?.kind === "writing" && flow[i - 1]?.kind === "mc";
     }
 
     function updateNavButtons(){
       const isFirst = currentPage === 0;
       const isLast = currentPage === flow.length - 1;
-      backPageBtn.disabled = isFirst;
+      backPageBtn.disabled = isFirst || isFirstWritingPage(currentPage);
       submitBtn.textContent = isLast ? "Submit" : "Next";
 
       const page = flow[currentPage];
@@ -681,6 +705,13 @@
     async function goNextOrSubmit(){
       const isLast = currentPage === flow.length - 1;
       if(!isLast){
+        if(isFirstWritingPage(currentPage + 1)){
+          const unanswered = numQuestions - Object.keys(answers).length;
+          const missing = unanswered > 0
+            ? `You have ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}.\n\n`
+            : "";
+          if(!confirm(`${missing}This starts the writing section. You won't be able to return to the questions. Continue?`)) return;
+        }
         currentPage++;
         await renderCurrentPage();
         return;
@@ -696,7 +727,7 @@
     }
 
     async function goBackPage(){
-      if(currentPage > 0){
+      if(currentPage > 0 && !isFirstWritingPage(currentPage)){
         currentPage--;
         await renderCurrentPage();
       }
