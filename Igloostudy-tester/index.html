@@ -127,7 +127,10 @@
       white-space: pre-wrap; margin-bottom: 12px; color: var(--ink);
     }
     .writeArea{
-      width:100%; min-height: 320px; resize: vertical; padding: 12px 14px;
+      width:100%; resize: vertical; padding: 12px 14px;
+      /* Essay-length by default; students can still drag it taller. */
+      min-height: 700px;
+      min-height: max(700px, 80vh);
       font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.6;
       color: var(--ink); background:#fff;
       border:2px solid var(--border); border-radius:12px;
