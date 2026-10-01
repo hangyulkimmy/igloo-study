@@ -229,6 +229,19 @@
           <option value="120">120 minutes</option>
         </select>
 
+        <label for="writingTimerSel">Writing timer (optional)</label>
+        <select id="writingTimerSel">
+          <option value="0">No Timer</option>
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="20">20 minutes</option>
+          <option value="25">25 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+        <div class="small">Starts fresh when the writing section begins. Only applies if the test has one.</div>
+
         <div class="actions">
           <button class="btn btnPrimary" id="startBtn">Start Test</button>
           <button class="btn btnGhost" id="clearBtn" type="button">Clear</button>
@@ -361,6 +374,7 @@
 
     const mainMsg = document.getElementById("mainMsg");
     const sheetTitle = document.getElementById("sheetTitle");
+    const writingTimerSel = document.getElementById("writingTimerSel");
     const resultLine = document.getElementById("resultLine");
 
     const submittedSummary = document.getElementById("submittedSummary");
@@ -383,8 +397,11 @@
     let pdfDoc = null; // pdf.js document, loaded once per test
 
     // ===== TIMER =====
-    function startTimer(minutes) {
+    let timerLabel = "";
+
+    function startTimer(minutes, label) {
       stopTimer();
+      timerLabel = label || "";
       if (!minutes || minutes <= 0) { timerDisplay.style.display = "none"; return; }
       timerSecondsLeft = minutes * 60;
       timerDisplay.style.display = "block";
@@ -397,7 +414,7 @@
         updateTimerDisplay();
         if (timerSecondsLeft <= 0) {
           stopTimer();
-          timerDisplay.textContent = "⏰ Time's up!";
+          timerDisplay.textContent = timerLabel ? `⏰ ${timerLabel} time's up!` : "⏰ Time's up!";
           timerDisplay.style.color = "#b00020";
           timerDisplay.style.background = "rgba(176,0,32,0.08)";
           timerDisplay.style.borderColor = "rgba(176,0,32,0.25)";
@@ -419,7 +436,7 @@
     function updateTimerDisplay() {
       const m = Math.floor(timerSecondsLeft / 60).toString().padStart(2, "0");
       const s = (timerSecondsLeft % 60).toString().padStart(2, "0");
-      timerDisplay.textContent = `⏱ ${m}:${s}`;
+      timerDisplay.textContent = `⏱ ${timerLabel ? timerLabel + " " : ""}${m}:${s}`;
     }
 
     // ===== HELPERS =====
@@ -499,6 +516,17 @@
           ordinal: i + 1,
         }));
       return [...mc, ...write];
+    }
+
+    function writingMinutes(){
+      return parseInt(writingTimerSel?.value, 10) || 0;
+    }
+
+    // Hand the clock over at the section boundary. startTimer() stops whatever was
+    // running first, so this also kills the multiple-choice clock -- otherwise it
+    // would keep counting down and auto-submit in the middle of an essay.
+    function startWritingTimer(){
+      startTimer(writingMinutes(), "Writing");
     }
 
     function writingPageCount(){
@@ -716,6 +744,7 @@
           if(!confirm(`${missing}This starts the writing section. You won't be able to return to the questions. Continue?`)) return;
         }
         currentPage++;
+        if(isFirstWritingPage(currentPage)) startWritingTimer();
         await renderCurrentPage();
         return;
       }
