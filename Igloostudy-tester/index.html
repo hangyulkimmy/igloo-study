@@ -313,7 +313,7 @@
       <section class="panel" id="panelSubmitted" style="display:none;">
         <div class="panelHead">
           <div>
-            <h2>Submitted ✅</h2>
+            <h2>Submitted</h2>
             <p>Your test has been submitted successfully.</p>
           </div>
         </div>
@@ -397,47 +397,65 @@
     let pdfDoc = null; // pdf.js document, loaded once per test
 
     // ===== TIMER =====
+    // The clock is anchored to a wall-clock deadline rather than counted down a
+    // tick at a time. Browsers throttle setInterval in a backgrounded tab (often
+    // to once a minute), so counting ticks would quietly hand a student extra
+    // time every time they switched away. Deriving the remaining time from
+    // Date.now() keeps it honest whether the tab is in front or not.
     let timerLabel = "";
+    let timerEndsAt = 0;
+
+    function setTimerUrgent(urgent) {
+      timerDisplay.style.color = urgent ? "#b00020" : "var(--navy2)";
+      timerDisplay.style.background = urgent ? "rgba(176,0,32,0.08)" : "rgba(11,58,111,0.08)";
+      timerDisplay.style.borderColor = urgent ? "rgba(176,0,32,0.25)" : "rgba(11,58,111,0.15)";
+    }
 
     function startTimer(minutes, label) {
       stopTimer();
       timerLabel = label || "";
       if (!minutes || minutes <= 0) { timerDisplay.style.display = "none"; return; }
-      timerSecondsLeft = minutes * 60;
+      timerEndsAt = Date.now() + Math.round(minutes * 60 * 1000);
       timerDisplay.style.display = "block";
-      timerDisplay.style.color = "var(--navy2)";
-      timerDisplay.style.borderColor = "rgba(11,58,111,0.15)";
-      timerDisplay.style.background = "rgba(11,58,111,0.08)";
+      setTimerUrgent(false);
+      tickTimer();
+      timerInterval = setInterval(tickTimer, 1000);
+    }
+
+    function tickTimer() {
+      if (!timerEndsAt) return;
+      timerSecondsLeft = Math.max(0, Math.round((timerEndsAt - Date.now()) / 1000));
       updateTimerDisplay();
-      timerInterval = setInterval(() => {
-        timerSecondsLeft--;
-        updateTimerDisplay();
-        if (timerSecondsLeft <= 0) {
-          stopTimer();
-          timerDisplay.textContent = timerLabel ? `⏰ ${timerLabel} time's up!` : "⏰ Time's up!";
-          timerDisplay.style.color = "#b00020";
-          timerDisplay.style.background = "rgba(176,0,32,0.08)";
-          timerDisplay.style.borderColor = "rgba(176,0,32,0.25)";
-          submit();
-        } else if (timerSecondsLeft <= 300) {
-          // Red when under 5 minutes
-          timerDisplay.style.color = "#b00020";
-          timerDisplay.style.background = "rgba(176,0,32,0.08)";
-          timerDisplay.style.borderColor = "rgba(176,0,32,0.25)";
-        }
-      }, 1000);
+
+      if (timerSecondsLeft <= 0) {
+        stopTimer();
+        timerDisplay.style.display = "block";
+        timerDisplay.textContent = timerLabel ? `${timerLabel} time's up!` : "Time's up!";
+        setTimerUrgent(true);
+        submit();
+        return;
+      }
+      // Red when under 5 minutes
+      if (timerSecondsLeft <= 300) setTimerUrgent(true);
     }
 
     function stopTimer() {
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      timerEndsAt = 0;
       timerDisplay.style.display = "none";
     }
 
     function updateTimerDisplay() {
       const m = Math.floor(timerSecondsLeft / 60).toString().padStart(2, "0");
       const s = (timerSecondsLeft % 60).toString().padStart(2, "0");
-      timerDisplay.textContent = `⏱ ${timerLabel ? timerLabel + " " : ""}${m}:${s}`;
+      timerDisplay.textContent = `${timerLabel ? timerLabel + " " : ""}${m}:${s}`;
     }
+
+    // Coming back to a throttled tab: re-read the clock straight away instead of
+    // waiting for the next (possibly delayed) interval.
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && timerInterval) tickTimer();
+    });
 
     // ===== HELPERS =====
     function setMsg(el, text, kind){
@@ -469,7 +487,7 @@
       startBtn.disabled = !ok;
 
       if(ok){
-        setMsg(studentGateMsg, "Ready ✅", "ok");
+        setMsg(studentGateMsg, "Ready", "ok");
       } else {
         setMsg(studentGateMsg, "Fill all student fields to start the test.", "err");
       }
@@ -836,7 +854,7 @@
 
         await renderCurrentPage();
         showView("test");
-        setMsg(leftMsg, "Test started ✅", "ok");
+        setMsg(leftMsg, "Test started", "ok");
         setMsg(mainMsg, "Select your answers, then press Next.", "");
       }catch(e){
         showView("home");
