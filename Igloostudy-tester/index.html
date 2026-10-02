@@ -432,7 +432,7 @@
         timerDisplay.style.display = "block";
         timerDisplay.textContent = timerLabel ? `${timerLabel} time's up!` : "Time's up!";
         setTimerUrgent(true);
-        submit();
+        handleTimeUp();
         return;
       }
       // Red when under 5 minutes
@@ -545,6 +545,21 @@
     // would keep counting down and auto-submit in the middle of an essay.
     function startWritingTimer(){
       startTimer(writingMinutes(), "Writing");
+    }
+
+    // Running out of time on the questions must not forfeit the writing section:
+    // close the questions and move the student into writing on its own clock.
+    // Only the final section's clock ends the test.
+    async function handleTimeUp(){
+      const firstWriting = flow.findIndex(p => p.kind === "writing");
+      if(flow[currentPage]?.kind === "mc" && firstWriting !== -1){
+        currentPage = firstWriting;
+        startWritingTimer();
+        await renderCurrentPage();
+        setMsg(mainMsg, "Time is up on the questions. You are now in the writing section.", "err");
+        return;
+      }
+      submit();
     }
 
     function writingPageCount(){
