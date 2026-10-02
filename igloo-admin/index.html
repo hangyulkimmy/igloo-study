@@ -566,6 +566,47 @@
   </div>
 
   <!-- MODAL (details) -->
+  <style>
+    /* ---- writing marking ---- */
+    .essay{
+      white-space: pre-wrap; line-height: 1.85; font-size: 15px;
+      background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px;
+      cursor: text;
+    }
+    .hl{ border-radius:3px; padding:1px 0; }
+    /* The marker number is CSS content, NOT a text node -- a text node here would
+       shift every character offset and corrupt the stored highlight ranges. */
+    .hl::after{
+      content: attr(data-n); vertical-align: super; font-size: 10px;
+      font-weight: 900; margin-left: 2px; opacity: .75;
+    }
+    .hl-yellow{ background:#fff3a3; } .hl-green{ background:#bdf0c4; }
+    .hl-blue{ background:#bcdcff; }   .hl-pink{ background:#ffc9de; }
+    .hl-orange{ background:#ffd3a8; }
+    .swatch{
+      width:28px; height:28px; border-radius:8px; border:2px solid rgba(0,0,0,.18);
+      cursor:pointer; padding:0;
+    }
+    .swatch[aria-pressed="true"]{ outline:3px solid var(--navy); outline-offset:2px; }
+    .noteRow{ display:flex; gap:10px; align-items:flex-start; margin:8px 0; }
+    .noteNum{ font-weight:900; min-width:26px; }
+    .noteChip{ border-radius:4px; padding:1px 6px; font-size:12px; }
+    .rubricTable{ width:100%; border-collapse:collapse; }
+    .rubricTable td, .rubricTable th{ padding:6px 8px; border-bottom:1px solid var(--border); text-align:left; }
+    .rubricTable input[type=number]{ width:72px; }
+    .rubricTable input[type=text]{ width:100%; }
+    #printArea{ display:none; }
+
+    @media print{
+      body > *{ display:none !important; }
+      #printArea{ display:block !important; padding:0; }
+      #printArea .essay{ border:none; padding:0; }
+      @page{ margin: 16mm; }
+    }
+  </style>
+
+  <div id="printArea"></div>
+
   <div id="modalBack" class="modalBack" role="dialog" aria-modal="true">
     <div class="modal">
       <div class="modalHead">
@@ -573,7 +614,11 @@
           <h3 id="modalTitle">Modal</h3>
           <div class="small" id="modalSub"></div>
         </div>
-        <button class="btn btnGhost" id="closeModalBtn" type="button">Close</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btnGhost" id="modalPrevBtn" type="button" style="display:none;">Back</button>
+          <button class="btn btnPrimary" id="modalNextBtn" type="button" style="display:none;">Next</button>
+          <button class="btn btnGhost" id="closeModalBtn" type="button">Close</button>
+        </div>
       </div>
       <div class="modalBody" id="modalBody"></div>
     </div>
@@ -639,6 +684,8 @@ const API_BASE = "https://igloo-study.onrender.com";
     const modalTitle = document.getElementById("modalTitle");
     const modalSub = document.getElementById("modalSub");
     const modalBody = document.getElementById("modalBody");
+    const modalPrevBtn = document.getElementById("modalPrevBtn");
+    const modalNextBtn = document.getElementById("modalNextBtn");
 
     function setMsg(el, text, kind){
       el.className = "msg " + (kind || "");
@@ -793,6 +840,405 @@ const API_BASE = "https://igloo-study.onrender.com";
 }
 
 
+    // =========================
+    // Submission view: paginated (multiple choice, then one page per writing prompt)
+    // =========================
+    let subState = null;
+
+    const HL_COLORS = ["yellow", "green", "blue", "pink", "orange"];
+    const DEFAULT_CRITERIA = [
+      { name: "Content",      max: 25, score: null },
+      { name: "Organization", max: 25, score: null },
+      { name: "Grammar",      max: 25, score: null },
+      { name: "Vocabulary",   max: 25, score: null },
+    ];
+
+    function buildSubmissionState(s){
+      const meta = s.questions || {};
+      const prompts = Array.isArray(meta.writing_prompts) ? meta.writing_prompts : [];
+      const written = (s.answers && typeof s.answers.writing === "object") ? s.answers.writing : {};
+
+      const pages = [{ kind: "mc" }];
+      prompts.forEach((pr, i) => {
+        const id = pr?.id || `w${i + 1}`;
+        pages.push({
+          kind: "writing",
+          index: i,
+          id,
+          prompt: String(pr?.prompt || ""),
+          text: typeof written[id] === "string" ? written[id] : "",
+        });
+      });
+
+      const saved = s.grading && typeof s.grading === "object" ? s.grading : {};
+      return {
+        s,
+        pages,
+        page: 0,
+        dirty: false,
+        pendingSel: null,
+        pendingColor: HL_COLORS[0],
+        grading: {
+          criteria: Array.isArray(saved.criteria) && saved.criteria.length
+            ? saved.criteria.map(c => ({ name: c.name, max: c.max, score: c.score ?? null }))
+            : DEFAULT_CRITERIA.map(c => ({ ...c })),
+          highlights: Array.isArray(saved.highlights) ? saved.highlights.map(h => ({ ...h })) : [],
+          comment: typeof saved.comment === "string" ? saved.comment : "",
+        },
+      };
+    }
+
+    function renderSubmissionPage(){
+      if(!subState) return;
+      const { s, pages, page } = subState;
+
+      modalTitle.textContent = `${s.name} • ${s.subject}/${s.level} • ${s.score}%`;
+      modalSub.textContent = `Grade: ${s.grade} • Email: ${s.email || "(n/a)"} • Phone: ${s.phone || "(n/a)"} • ${formatDate(s.submitted_at)}`;
+
+      const multi = pages.length > 1;
+      modalPrevBtn.style.display = multi ? "" : "none";
+      modalNextBtn.style.display = multi ? "" : "none";
+      modalPrevBtn.disabled = page === 0;
+      modalNextBtn.disabled = page === pages.length - 1;
+
+      modalBody.innerHTML = pages[page].kind === "mc"
+        ? renderMcPage(s, multi ? `Page 1 of ${pages.length}` : "")
+        : renderWritingPage(pages[page], `Page ${page + 1} of ${pages.length}`);
+
+      if(pages[page].kind === "writing") wireWritingPage(pages[page]);
+      modalBody.scrollTop = 0;
+    }
+
+    function renderMcPage(s, pageLabel){
+      const answers = s.answers || {};
+      const keyMap = s.answer_key || {};
+      const meta = s.questions || {};
+      const n = meta.num_questions || 0;
+      const choicesCount = meta.choices_count || 5;
+      const letters = "ABCDE".slice(0, choicesCount);
+
+      let html = pageLabel ? `<div class="small" style="margin-bottom:6px;">${escapeHtml(pageLabel)} • Multiple choice</div>` : "";
+      html += `<div class="mono">Submission ID: ${escapeHtml(s.id)}</div>`;
+      html += `<div class="small">Test Type: ${escapeHtml(meta.type || "unknown")} • Questions: ${escapeHtml(String(n))} • Choices: ${escapeHtml(letters)}</div>`;
+
+      if(meta.type === "image" && meta.image_url){
+        const fileUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
+        const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
+        const previewUrl = isPdf ? `${API_BASE}/files/pdf?url=${encodeURIComponent(fileUrl)}` : fileUrl;
+        html += `<div class="qbox">
+                  <div style="font-weight:900; margin-bottom:8px;">Test file</div>
+                  ${isPdf
+                    ? `<iframe src="${previewUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
+                    : `<img src="${previewUrl}" alt="Test image" style="width:100%; border-radius:14px; border:1px solid var(--border);" />`}
+                </div>`;
+      }
+
+      for(let i=1; i<=n; i++){
+        const qid = `q${i}`;
+        const chosenIdx = answers[qid];
+        const correctIdx = keyMap[qid];
+        const chosen = (chosenIdx === undefined) ? "(no answer)" : letters[chosenIdx] ?? "(invalid)";
+        const correct = (correctIdx === undefined) ? "(missing key)" : letters[correctIdx] ?? "(invalid)";
+        const isCorrect = chosenIdx === correctIdx;
+        html += `
+          <div class="qbox">
+            <div style="font-weight:900;">Q${i}</div>
+            <div class="small">Chosen: <b>${escapeHtml(chosen)}</b></div>
+            <div class="small">Correct: <b>${escapeHtml(correct)}</b></div>
+            <div class="small" style="font-weight:900; color:${isCorrect ? "#0b6b2f" : "#b00020"};">
+              ${isCorrect ? "Correct" : "Incorrect"}
+            </div>
+          </div>`;
+      }
+      return html;
+    }
+
+    // Highlights for the prompt currently on screen, in document order.
+    function highlightsFor(promptId){
+      return subState.grading.highlights
+        .filter(h => h.promptId === promptId)
+        .sort((a, b) => a.start - b.start);
+    }
+
+    function renderEssayHtml(text, highlights){
+      let out = "", pos = 0, n = 0;
+      for(const h of highlights){
+        if(h.start < pos || h.end > text.length) continue; // stale or overlapping: skip
+        n++;
+        out += escapeHtml(text.slice(pos, h.start));
+        out += `<mark class="hl hl-${h.color}" data-start="${h.start}" data-n="${n}">${escapeHtml(text.slice(h.start, h.end))}</mark>`;
+        pos = h.end;
+      }
+      out += escapeHtml(text.slice(pos));
+      return out || '<span class="small">(left blank)</span>';
+    }
+
+    function renderWritingPage(page, pageLabel){
+      const hs = highlightsFor(page.id);
+      const words = page.text.trim() ? page.text.trim().split(/\s+/).length : 0;
+
+      const swatches = HL_COLORS.map(c =>
+        `<button type="button" class="swatch hl-${c}" data-color="${c}" aria-pressed="${c === subState.pendingColor}" title="${c}"></button>`
+      ).join("");
+
+      const notes = hs.map((h, i) => `
+        <div class="noteRow">
+          <div class="noteNum">${i + 1}</div>
+          <div style="flex:1;">
+            <span class="noteChip hl-${h.color}">${escapeHtml(subState.pages.find(p => p.id === h.promptId)?.text.slice(h.start, h.end).slice(0, 80) || "")}</span>
+            <div style="margin-top:4px;">${escapeHtml(h.note) || '<span class="small">(no note)</span>'}</div>
+          </div>
+          <button class="btn btnGhost" type="button" data-del="${h.start}">Remove</button>
+        </div>`).join("") || `<div class="small">No notes yet. Select some text in the writing above to add one.</div>`;
+
+      const rubricRows = subState.grading.criteria.map((c, i) => `
+        <tr>
+          <td><input type="text" data-crit="${i}" data-field="name" value="${escapeHtml(c.name)}" /></td>
+          <td><input type="number" data-crit="${i}" data-field="score" value="${c.score ?? ""}" min="0" max="${c.max}" step="any" placeholder="-" /></td>
+          <td class="small">/ <input type="number" data-crit="${i}" data-field="max" value="${c.max}" min="1" step="any" /></td>
+          <td><button class="btn btnGhost" type="button" data-critdel="${i}">Remove</button></td>
+        </tr>`).join("");
+
+      const totals = rubricTotals();
+
+      return `
+        <div class="small" style="margin-bottom:6px;">${escapeHtml(pageLabel)} • Writing ${page.index + 1}</div>
+
+        <div class="qbox">
+          <div style="font-weight:900;">Prompt</div>
+          <div class="small" style="white-space:pre-wrap; font-style:italic; margin-top:4px;">${escapeHtml(page.prompt) || "(no prompt)"}</div>
+        </div>
+
+        <div class="qbox">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-weight:900;">Student's writing</div>
+            <div class="small">${words} word${words === 1 ? "" : "s"}</div>
+          </div>
+          <div class="essay" id="essayBox">${renderEssayHtml(page.text, hs)}</div>
+
+          <div id="selBar" style="display:none; margin-top:10px; padding:10px; border:1px solid var(--border); border-radius:12px;">
+            <div class="small" style="margin-bottom:6px;">Selected: <b id="selText"></b></div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              ${swatches}
+              <input type="text" id="selNote" placeholder="Add a note (optional)" style="flex:1; min-width:200px;" />
+              <button class="btn btnPrimary" type="button" id="addHlBtn">Add</button>
+              <button class="btn btnGhost" type="button" id="cancelHlBtn">Cancel</button>
+            </div>
+          </div>
+          <div class="small" id="selHint" style="margin-top:8px;">Select any part of the writing to highlight it and attach a note.</div>
+        </div>
+
+        <div class="qbox">
+          <div style="font-weight:900; margin-bottom:6px;">Notes</div>
+          ${notes}
+        </div>
+
+        <div class="qbox">
+          <div style="font-weight:900; margin-bottom:6px;">Score</div>
+          <table class="rubricTable">
+            <thead><tr><th>Criterion</th><th>Score</th><th>Max</th><th></th></tr></thead>
+            <tbody>${rubricRows}</tbody>
+          </table>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:10px; flex-wrap:wrap;">
+            <button class="btn btnGhost" type="button" id="addCritBtn">Add criterion</button>
+            <div style="font-weight:900;">Total: ${totals.score} / ${totals.max}${totals.max ? ` (${totals.pct}%)` : ""}</div>
+          </div>
+          <div style="margin-top:10px;">
+            <label for="overallComment">Overall comment</label>
+            <textarea id="overallComment" rows="4" placeholder="Feedback for this piece of writing…">${escapeHtml(subState.grading.comment)}</textarea>
+          </div>
+          <div class="actions" style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+            <button class="btn btnPrimary" type="button" id="saveGradingBtn">Save</button>
+            <button class="btn btnGhost" type="button" id="printWritingBtn">Print / Save as PDF</button>
+            <span class="msg" id="gradingMsg"></span>
+          </div>
+        </div>`;
+    }
+
+    function rubricTotals(){
+      let score = 0, max = 0, any = false;
+      for(const c of subState.grading.criteria){
+        max += Number(c.max) || 0;
+        if(c.score !== null && c.score !== "" && Number.isFinite(Number(c.score))){ score += Number(c.score); any = true; }
+      }
+      return { score: any ? +score.toFixed(2) : 0, max: +max.toFixed(2), pct: max ? Math.round((score / max) * 100) : 0 };
+    }
+
+    // Character offset of a point in the essay container, counting only real text
+    // nodes (the marker numbers are CSS content, so they don't appear here).
+    function offsetInEssay(container, node, nodeOffset){
+      if(!container.contains(node)) return null;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let total = 0, n;
+      while((n = walker.nextNode())){
+        if(n === node) return total + nodeOffset;
+        total += n.nodeValue.length;
+      }
+      return null;
+    }
+
+    function wireWritingPage(page){
+      const essayBox = document.getElementById("essayBox");
+      const selBar = document.getElementById("selBar");
+      const selText = document.getElementById("selText");
+      const selNote = document.getElementById("selNote");
+      const gradingMsg = document.getElementById("gradingMsg");
+
+      const clearSel = () => {
+        subState.pendingSel = null;
+        selBar.style.display = "none";
+        selNote.value = "";
+      };
+
+      document.addEventListener("selectionchange", onSelChange);
+      function onSelChange(){
+        if(!document.body.contains(essayBox)){
+          document.removeEventListener("selectionchange", onSelChange);
+          return;
+        }
+        const sel = window.getSelection();
+        if(!sel || sel.isCollapsed || !sel.rangeCount) return;
+        const r = sel.getRangeAt(0);
+        const a = offsetInEssay(essayBox, r.startContainer, r.startOffset);
+        const b = offsetInEssay(essayBox, r.endContainer, r.endOffset);
+        if(a === null || b === null) return;
+        const start = Math.min(a, b), end = Math.max(a, b);
+        if(end <= start) return;
+        subState.pendingSel = { start, end };
+        selText.textContent = page.text.slice(start, end).slice(0, 120);
+        selBar.style.display = "";
+      }
+
+      selBar.querySelectorAll(".swatch").forEach(btn => {
+        btn.onclick = () => {
+          subState.pendingColor = btn.dataset.color;
+          selBar.querySelectorAll(".swatch").forEach(b => b.setAttribute("aria-pressed", String(b === btn)));
+        };
+      });
+
+      document.getElementById("cancelHlBtn").onclick = clearSel;
+
+      document.getElementById("addHlBtn").onclick = () => {
+        const selRange = subState.pendingSel;
+        if(!selRange) return;
+        const overlaps = highlightsFor(page.id).some(h => selRange.start < h.end && h.start < selRange.end);
+        if(overlaps){
+          setMsg(gradingMsg, "That overlaps an existing highlight. Remove it first.", "err");
+          return;
+        }
+        subState.grading.highlights.push({
+          promptId: page.id, start: selRange.start, end: selRange.end,
+          color: subState.pendingColor, note: selNote.value.trim(),
+        });
+        subState.dirty = true;
+        clearSel();
+        renderSubmissionPage();
+      };
+
+      modalBody.querySelectorAll("[data-del]").forEach(btn => {
+        btn.onclick = () => {
+          const start = Number(btn.dataset.del);
+          subState.grading.highlights = subState.grading.highlights
+            .filter(h => !(h.promptId === page.id && h.start === start));
+          subState.dirty = true;
+          renderSubmissionPage();
+        };
+      });
+
+      modalBody.querySelectorAll("[data-crit]").forEach(inp => {
+        inp.onchange = () => {
+          const c = subState.grading.criteria[Number(inp.dataset.crit)];
+          if(!c) return;
+          const f = inp.dataset.field;
+          if(f === "name") c.name = inp.value;
+          else if(f === "max") c.max = Number(inp.value) || 1;
+          else c.score = inp.value === "" ? null : Number(inp.value);
+          subState.dirty = true;
+          renderSubmissionPage();
+        };
+      });
+
+      modalBody.querySelectorAll("[data-critdel]").forEach(btn => {
+        btn.onclick = () => {
+          subState.grading.criteria.splice(Number(btn.dataset.critdel), 1);
+          subState.dirty = true;
+          renderSubmissionPage();
+        };
+      });
+
+      document.getElementById("addCritBtn").onclick = () => {
+        subState.grading.criteria.push({ name: "New criterion", max: 25, score: null });
+        subState.dirty = true;
+        renderSubmissionPage();
+      };
+
+      document.getElementById("overallComment").oninput = (e) => {
+        subState.grading.comment = e.target.value;
+        subState.dirty = true;
+      };
+
+      document.getElementById("saveGradingBtn").onclick = () => saveGrading(gradingMsg);
+      document.getElementById("printWritingBtn").onclick = () => printWriting();
+    }
+
+    async function saveGrading(msgEl){
+      const key = requireKeyOrWarn();
+      if(!key) return;
+      setMsg(msgEl, "Saving…", "");
+      try{
+        const res = await fetch(`${API_BASE}/admin/submissions/${subState.s.id}/grading`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "x-admin-key": key },
+          body: JSON.stringify(subState.grading),
+        });
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok){ setMsg(msgEl, "Save failed: " + JSON.stringify(data), "err"); return; }
+        subState.dirty = false;
+        setMsg(msgEl, "Saved", "ok");
+      }catch(e){
+        setMsg(msgEl, "Save failed: could not reach server.", "err");
+      }
+    }
+
+    function printWriting(){
+      const s = subState.s;
+      const totals = rubricTotals();
+      const writingPages = subState.pages.filter(p => p.kind === "writing");
+
+      const body = writingPages.map(p => {
+        const hs = highlightsFor(p.id);
+        const notes = hs.map((h, i) => `
+          <div style="margin:4px 0;">
+            <b>${i + 1}.</b>
+            <span class="noteChip hl-${h.color}">${escapeHtml(p.text.slice(h.start, h.end).slice(0, 80))}</span>
+            — ${escapeHtml(h.note) || "(no note)"}
+          </div>`).join("");
+        return `
+          <h3 style="margin-bottom:4px;">Writing ${p.index + 1}</h3>
+          <div style="font-style:italic; white-space:pre-wrap; margin-bottom:8px;">${escapeHtml(p.prompt)}</div>
+          <div class="essay">${renderEssayHtml(p.text, hs)}</div>
+          ${notes ? `<h4>Notes</h4>${notes}` : ""}`;
+      }).join("<hr/>");
+
+      const rubric = subState.grading.criteria.map(c =>
+        `<tr><td>${escapeHtml(c.name)}</td><td>${c.score ?? "-"} / ${c.max}</td></tr>`).join("");
+
+      document.getElementById("printArea").innerHTML = `
+        <h2 style="margin-bottom:2px;">${escapeHtml(s.name)} — ${escapeHtml(s.subject)}/${escapeHtml(s.level)}</h2>
+        <div class="small">Grade: ${escapeHtml(s.grade)} • ${escapeHtml(formatDate(s.submitted_at))} • Multiple choice: ${escapeHtml(String(s.score))}%</div>
+        <hr/>
+        ${body}
+        <hr/>
+        <h3>Score</h3>
+        <table class="rubricTable">${rubric}</table>
+        <div style="font-weight:900; margin-top:6px;">Total: ${totals.score} / ${totals.max}${totals.max ? ` (${totals.pct}%)` : ""}</div>
+        ${subState.grading.comment ? `<h4>Overall comment</h4><div style="white-space:pre-wrap;">${escapeHtml(subState.grading.comment)}</div>` : ""}`;
+      window.print();
+    }
+
+    modalPrevBtn.onclick = () => { if(subState && subState.page > 0){ subState.page--; renderSubmissionPage(); } };
+    modalNextBtn.onclick = () => { if(subState && subState.page < subState.pages.length - 1){ subState.page++; renderSubmissionPage(); } };
+
     async function openSubmission(id){
       const key = requireKeyOrWarn();
       if(!key) return;
@@ -813,78 +1259,8 @@ const API_BASE = "https://igloo-study.onrender.com";
           return;
         }
 
-        modalTitle.textContent = `${s.name} • ${s.subject}/${s.level} • ${s.score}%`;
-        modalSub.textContent = `Grade: ${s.grade} • Email: ${s.email || "(n/a)"} • Phone: ${s.phone || "(n/a)"} • ${formatDate(s.submitted_at)}`;
-
-        const answers = s.answers || {};
-        const keyMap = s.answer_key || {};
-        const meta = s.questions || {};
-        const n = meta.num_questions || 0;
-        const choicesCount = meta.choices_count || 5;
-        const letters = "ABCDE".slice(0, choicesCount);
-
-        let html = `<div class="mono">Submission ID: ${escapeHtml(s.id)}</div>`;
-        html += `<div class="small">Test Type: ${escapeHtml(meta.type || "unknown")} • Questions: ${escapeHtml(String(n))} • Choices: ${escapeHtml(letters)}</div>`;
-
-        if(meta.type === "image" && meta.image_url){
-          const fileUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
-          const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
-          const previewUrl = isPdf ? `${API_BASE}/files/pdf?url=${encodeURIComponent(fileUrl)}` : fileUrl;
-          html += `<div class="qbox">
-                    <div style="font-weight:900; margin-bottom:8px;">Test file</div>
-                    ${isPdf
-                      ? `<iframe src="${previewUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
-                      : `<img src="${previewUrl}" alt="Test image" style="width:100%; border-radius:14px; border:1px solid var(--border);" />`}
-                  </div>`;
-        }
-
-        for(let i=1; i<=n; i++){
-          const qid = `q${i}`;
-          const chosenIdx = answers[qid];
-          const correctIdx = keyMap[qid];
-
-          const chosen = (chosenIdx === undefined) ? "(no answer)" : letters[chosenIdx] ?? "(invalid)";
-          const correct = (correctIdx === undefined) ? "(missing key)" : letters[correctIdx] ?? "(invalid)";
-          const isCorrect = chosenIdx === correctIdx;
-
-          html += `
-            <div class="qbox">
-              <div style="font-weight:900;">Q${i}</div>
-              <div class="small">Chosen: <b>${escapeHtml(chosen)}</b></div>
-              <div class="small">Correct: <b>${escapeHtml(correct)}</b></div>
-              <div class="small" style="font-weight:900; color:${isCorrect ? "#0b6b2f" : "#b00020"};">
-                ${isCorrect ? "Correct ✅" : "Incorrect ❌"}
-              </div>
-            </div>
-          `;
-        }
-
-        // Writing section (free response) — stored, never auto-graded.
-        const prompts = Array.isArray(meta.writing_prompts) ? meta.writing_prompts : [];
-        const written = (answers.writing && typeof answers.writing === "object") ? answers.writing : {};
-        if(prompts.length){
-          html += `<div class="qbox" style="border-width:2px;">
-                    <div style="font-weight:900; margin-bottom:6px;">Writing section</div>
-                    <div class="small">Not included in the ${escapeHtml(String(s.score ?? ""))}% score — read and judge it yourself.</div>
-                  </div>`;
-          prompts.forEach((pr, i) => {
-            const id = pr?.id || `w${i+1}`;
-            const text = typeof written[id] === "string" ? written[id] : "";
-            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-            html += `
-              <div class="qbox">
-                <div style="font-weight:900;">Writing ${i + 1}</div>
-                <div class="small" style="white-space:pre-wrap; margin:6px 0 10px; font-style:italic;">${escapeHtml(String(pr?.prompt || "(no prompt)"))}</div>
-                ${text.trim()
-                  ? `<div style="white-space:pre-wrap; line-height:1.6; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px;">${escapeHtml(text)}</div>
-                     <div class="small" style="margin-top:6px;">${words} word${words === 1 ? "" : "s"}</div>`
-                  : `<div class="small" style="font-weight:900; color:#b00020;">Left blank</div>`}
-              </div>
-            `;
-          });
-        }
-
-        modalBody.innerHTML = html;
+        subState = buildSubmissionState(s);
+        renderSubmissionPage();
 
       }catch(e){
         modalTitle.textContent = "Error";

@@ -21,5 +21,6 @@ CREATE TABLE IF NOT EXISTS submissions (
   level text NOT NULL,
   answers jsonb NOT NULL,
   score int NOT NULL,
+  grading jsonb,
   submitted_at timestamptz NOT NULL DEFAULT now()
 );

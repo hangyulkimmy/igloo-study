@@ -285,6 +285,81 @@ app.get("/admin/submissions/:id", requireAdmin, async (req, res) => {
 });
 
 // ---------------------
+// Admin: save writing grading (rubric + overall comment + inline highlights)
+// ---------------------
+const MAX_CRITERIA = 10;
+const MAX_HIGHLIGHTS = 200;
+const MAX_NOTE_CHARS = 2000;
+const HIGHLIGHT_COLORS = ["yellow", "green", "blue", "pink", "orange"];
+
+function clampNum(v, lo, hi) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function sanitizeGrading(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+
+  const criteria = Array.isArray(raw.criteria) ? raw.criteria.slice(0, MAX_CRITERIA) : [];
+  const cleanCriteria = [];
+  for (const c of criteria) {
+    if (!c || typeof c !== "object") continue;
+    const name = String(c.name ?? "").trim().slice(0, 60);
+    if (!name) continue;
+    const max = clampNum(c.max, 1, 1000) ?? 100;
+    // score may be left blank (ungraded); only clamp it when a number was given
+    const score = c.score === "" || c.score === null || typeof c.score === "undefined"
+      ? null
+      : clampNum(c.score, 0, max);
+    cleanCriteria.push({ name, max, score });
+  }
+
+  const highlights = Array.isArray(raw.highlights) ? raw.highlights.slice(0, MAX_HIGHLIGHTS) : [];
+  const cleanHighlights = [];
+  for (const h of highlights) {
+    if (!h || typeof h !== "object") continue;
+    const promptId = String(h.promptId ?? "").trim().slice(0, 20);
+    const start = clampNum(h.start, 0, 1e7);
+    const end = clampNum(h.end, 0, 1e7);
+    if (!promptId || start === null || end === null || end <= start) continue;
+    cleanHighlights.push({
+      promptId,
+      start: Math.round(start),
+      end: Math.round(end),
+      color: HIGHLIGHT_COLORS.includes(h.color) ? h.color : HIGHLIGHT_COLORS[0],
+      note: String(h.note ?? "").slice(0, MAX_NOTE_CHARS),
+    });
+  }
+
+  return {
+    criteria: cleanCriteria,
+    highlights: cleanHighlights,
+    comment: String(raw.comment ?? "").slice(0, 10000),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+app.put("/admin/submissions/:id/grading", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const grading = sanitizeGrading(req.body);
+    if (!grading) return res.status(400).json({ error: "invalid grading payload" });
+
+    const { rows } = await pool.query(
+      `UPDATE submissions SET grading = $1::jsonb WHERE id = $2 RETURNING id, grading`,
+      [JSON.stringify(grading), id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "submission not found" });
+
+    res.json({ ok: true, grading: rows[0].grading });
+  } catch (e) {
+    console.error("SAVE GRADING ERROR:", e);
+    res.status(500).json({ error: "failed to save grading", detail: String(e?.message || e) });
+  }
+});
+
+// ---------------------
 // Admin: list tests
 // ---------------------
 app.get("/admin/tests", requireAdmin, async (_req, res) => {
@@ -700,7 +775,19 @@ app.use((err, _req, res, _next) => {
 app.use((_req, res) => res.status(404).json({ error: "not_found" }));
 
 const port = process.env.PORT || 3000;
+// Additive, idempotent: adds the writing-grading column if it isn't there yet.
+// Wrapped so a failure logs loudly but never stops the API from booting.
+async function ensureSchema() {
+  try {
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS grading jsonb`);
+    console.log("Schema OK: submissions.grading");
+  } catch (e) {
+    console.error("Schema check failed (writing grading will not save):", e?.message || e);
+  }
+}
+
 app.listen(port, () => {
   console.log(`API on ${port}`);
+  ensureSchema();
   console.log(`Cloudinary configured: cloud=${!!process.env.CLOUDINARY_CLOUD_NAME} key=${!!process.env.CLOUDINARY_API_KEY} secret=${!!process.env.CLOUDINARY_API_SECRET}`);
 });
