@@ -566,7 +566,18 @@
   </div>
 
   <!-- MODAL (details) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
   <style>
+    /* ---- marking: split view ---- */
+    .markSplit{ display:grid; grid-template-columns: 1.15fr 1fr; gap:14px; align-items:start; }
+    .markSplit > div{ min-width:0; }
+    .pageCanvasWrap{ position:sticky; top:0; }
+    .pageCanvasWrap canvas{
+      width:100%; border-radius:12px; border:1px solid var(--border); display:block;
+    }
+    @media (max-width: 900px){ .markSplit{ grid-template-columns: 1fr; } .pageCanvasWrap{ position:static; } }
+
     /* ---- writing marking ---- */
     .essay{
       white-space: pre-wrap; line-height: 1.85; font-size: 15px;
@@ -626,6 +637,11 @@
 
   <script>
 const API_BASE = "https://igloo-study.onrender.com";
+
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
 
     const ADMIN_KEY_STORAGE = "IGLOO_ADMIN_KEY";
 // --- simple login gate ---
@@ -853,12 +869,33 @@ const API_BASE = "https://igloo-study.onrender.com";
       { name: "Vocabulary",   max: 25, score: null },
     ];
 
+    // Question numbers covered by each page of the test document, from the same
+    // `pages` array the tester paginates with, so marking lines up with what the
+    // student actually saw.
+    function mcPageBoundaries(meta){
+      const n = Number(meta?.num_questions || 0);
+      const lens = (Array.isArray(meta?.pages) && meta.pages.length) ? meta.pages : [n];
+      const out = [];
+      let pos = 1;
+      for(const len of lens){
+        out.push({ start: pos, end: Math.min(pos + len - 1, n) });
+        pos += len;
+      }
+      return out.filter(b => b.start <= n);
+    }
+
     function buildSubmissionState(s){
       const meta = s.questions || {};
       const prompts = Array.isArray(meta.writing_prompts) ? meta.writing_prompts : [];
       const written = (s.answers && typeof s.answers.writing === "object") ? s.answers.writing : {};
 
-      const pages = [{ kind: "mc" }];
+      // One entry per page of the document, then one per writing prompt. Back/Next
+      // walks the whole thing in the order the student experienced it.
+      const pages = mcPageBoundaries(meta).map((b, i) => ({
+        kind: "mc", start: b.start, end: b.end, docPage: i + 1,
+      }));
+      if(!pages.length) pages.push({ kind: "mc", start: 1, end: Number(meta.num_questions || 0), docPage: 1 });
+
       prompts.forEach((pr, i) => {
         const id = pr?.id || `w${i + 1}`;
         pages.push({
@@ -878,6 +915,8 @@ const API_BASE = "https://igloo-study.onrender.com";
         dirty: false,
         pendingSel: null,
         pendingColor: HL_COLORS[0],
+        pdfDoc: null,
+        pdfTried: false,
         grading: {
           criteria: Array.isArray(saved.criteria) && saved.criteria.length
             ? saved.criteria.map(c => ({ name: c.name, max: c.max, score: c.score ?? null }))
@@ -901,15 +940,17 @@ const API_BASE = "https://igloo-study.onrender.com";
       modalPrevBtn.disabled = page === 0;
       modalNextBtn.disabled = page === pages.length - 1;
 
+      const label = multi ? `Page ${page + 1} of ${pages.length}` : "";
       modalBody.innerHTML = pages[page].kind === "mc"
-        ? renderMcPage(s, multi ? `Page 1 of ${pages.length}` : "")
-        : renderWritingPage(pages[page], `Page ${page + 1} of ${pages.length}`);
+        ? renderMcPage(s, pages[page], label)
+        : renderWritingPage(pages[page], label);
 
-      if(pages[page].kind === "writing") wireWritingPage(pages[page]);
+      if(pages[page].kind === "mc") showTestPage(s, pages[page]);
+      else wireWritingPage(pages[page]);
       modalBody.scrollTop = 0;
     }
 
-    function renderMcPage(s, pageLabel){
+    function renderMcPage(s, page, pageLabel){
       const answers = s.answers || {};
       const keyMap = s.answer_key || {};
       const meta = s.questions || {};
@@ -917,40 +958,97 @@ const API_BASE = "https://igloo-study.onrender.com";
       const choicesCount = meta.choices_count || 5;
       const letters = "ABCDE".slice(0, choicesCount);
 
-      let html = pageLabel ? `<div class="small" style="margin-bottom:6px;">${escapeHtml(pageLabel)} • Multiple choice</div>` : "";
-      html += `<div class="mono">Submission ID: ${escapeHtml(s.id)}</div>`;
-      html += `<div class="small">Test Type: ${escapeHtml(meta.type || "unknown")} • Questions: ${escapeHtml(String(n))} • Choices: ${escapeHtml(letters)}</div>`;
-
-      if(meta.type === "image" && meta.image_url){
-        const fileUrl = meta.image_url.startsWith("http") ? meta.image_url : API_BASE + meta.image_url;
-        const isPdf = meta.image_url.toLowerCase().endsWith(".pdf") || meta.image_url.includes("/raw/upload/");
-        const previewUrl = isPdf ? `${API_BASE}/files/pdf?url=${encodeURIComponent(fileUrl)}` : fileUrl;
-        html += `<div class="qbox">
-                  <div style="font-weight:900; margin-bottom:8px;">Test file</div>
-                  ${isPdf
-                    ? `<iframe src="${previewUrl}" style="width:100%;height:70vh;border:none;border-radius:14px;"></iframe>`
-                    : `<img src="${previewUrl}" alt="Test image" style="width:100%; border-radius:14px; border:1px solid var(--border);" />`}
-                </div>`;
-      }
-
-      for(let i=1; i<=n; i++){
+      let rows = "";
+      let right = 0, total = 0;
+      for(let i = page.start; i <= page.end; i++){
         const qid = `q${i}`;
         const chosenIdx = answers[qid];
         const correctIdx = keyMap[qid];
         const chosen = (chosenIdx === undefined) ? "(no answer)" : letters[chosenIdx] ?? "(invalid)";
         const correct = (correctIdx === undefined) ? "(missing key)" : letters[correctIdx] ?? "(invalid)";
         const isCorrect = chosenIdx === correctIdx;
-        html += `
-          <div class="qbox">
-            <div style="font-weight:900;">Q${i}</div>
-            <div class="small">Chosen: <b>${escapeHtml(chosen)}</b></div>
-            <div class="small">Correct: <b>${escapeHtml(correct)}</b></div>
-            <div class="small" style="font-weight:900; color:${isCorrect ? "#0b6b2f" : "#b00020"};">
-              ${isCorrect ? "Correct" : "Incorrect"}
-            </div>
-          </div>`;
+        total++; if(isCorrect) right++;
+        rows += `
+          <tr>
+            <td style="font-weight:900; white-space:nowrap;">Q${i}</td>
+            <td style="color:${isCorrect ? "#0b6b2f" : "#b00020"}; font-weight:900;">${escapeHtml(chosen)}</td>
+            <td>${escapeHtml(correct)}</td>
+            <td style="color:${isCorrect ? "#0b6b2f" : "#b00020"}; font-weight:900;">${isCorrect ? "Correct" : "Incorrect"}</td>
+          </tr>`;
       }
-      return html;
+
+      const head = `
+        ${pageLabel ? `<div class="small" style="margin-bottom:6px;">${escapeHtml(pageLabel)} • Multiple choice</div>` : ""}
+        <div class="mono">Submission ID: ${escapeHtml(s.id)}</div>
+        <div class="small" style="margin-bottom:10px;">Questions ${page.start}–${page.end} of ${escapeHtml(String(n))} • Choices: ${escapeHtml(letters)} • This page: <b>${right}/${total}</b></div>`;
+
+      return `${head}
+        <div class="markSplit">
+          <div>
+            <div style="font-weight:900; margin-bottom:6px;">Test file</div>
+            <div class="pageCanvasWrap" id="testPageWrap"><div class="small">Loading…</div></div>
+          </div>
+          <div>
+            <div style="font-weight:900; margin-bottom:6px;">Answers</div>
+            <table class="rubricTable">
+              <thead><tr><th>#</th><th>Chosen</th><th>Correct</th><th></th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    // Render just this page of the test document into the left column. PDFs are
+    // drawn a page at a time with pdf.js (an iframe can't be pinned to one page
+    // reliably); a plain image test has only one sheet, so it is shown as-is.
+    async function showTestPage(s, page){
+      const wrap = document.getElementById("testPageWrap");
+      if(!wrap) return;
+      const meta = s.questions || {};
+      const raw = meta.image_url;
+      if(!(meta.type === "image" && raw)){
+        wrap.innerHTML = `<div class="small">No test file attached.</div>`;
+        return;
+      }
+
+      const fullUrl = raw.startsWith("http") ? raw : API_BASE + raw;
+      const isPdf = raw.toLowerCase().endsWith(".pdf") || raw.includes("/raw/upload/");
+
+      if(!isPdf){
+        wrap.innerHTML = `<img src="${fullUrl}" alt="Test image" style="width:100%; border-radius:12px; border:1px solid var(--border);" />`;
+        return;
+      }
+
+      try{
+        if(!subState.pdfDoc && !subState.pdfTried){
+          subState.pdfTried = true;
+          subState.pdfDoc = await pdfjsLib.getDocument(
+            `${API_BASE}/files/pdf?url=${encodeURIComponent(fullUrl)}`
+          ).promise;
+        }
+        if(!subState.pdfDoc){
+          wrap.innerHTML = `<div class="small">Could not load the PDF.</div>`;
+          return;
+        }
+        const num = Math.max(1, Math.min(page.docPage, subState.pdfDoc.numPages));
+        const pdfPage = await subState.pdfDoc.getPage(num);
+        const viewport = pdfPage.getViewport({ scale: 1.6 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        wrap.innerHTML = "";
+        wrap.appendChild(canvas);
+        await pdfPage.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        if(subState.pdfDoc.numPages !== subState.pages.filter(p => p.kind === "mc").length){
+          const note = document.createElement("div");
+          note.className = "small";
+          note.style.marginTop = "6px";
+          note.textContent = `Document page ${num} of ${subState.pdfDoc.numPages}`;
+          wrap.appendChild(note);
+        }
+      }catch(e){
+        wrap.innerHTML = `<div class="small">Could not load the PDF.</div>`;
+      }
     }
 
     // Highlights for the prompt currently on screen, in document order.
