@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Superseded standalone page — kept working, but not for search results.
+Disallow: /test.html
+
+Sitemap: https://igloo-level-test.onrender.com/sitemap.xml
